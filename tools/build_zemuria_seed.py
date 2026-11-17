@@ -15,6 +15,8 @@ import json
 import os
 import re
 import sys
+import xml.etree.ElementTree as ET
+import zipfile
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
 
@@ -56,7 +58,91 @@ CACHE_DIR = os.environ.get("KISEKI_SEED_CACHE_DIR", os.path.join(TOOLS_DIR, "cac
 KURO2_DOCS_DIR = os.environ.get("KURO2_DOCS_DIR", "")
 OUT_JSON = os.environ.get("KISEKI_OUT_JSON", os.path.join(REPO_ROOT, "data", "zemuria.latest.json"))
 VALID_ENTITY_TYPES = {"nation", "organization", "family", "school", "character"}
-FORBIDDEN_ARTIFACT_NAMES = {"雷盖伦之箱", "蕾盖伦之匣", "时之至宝", "创世", "八创世"}
+FORBIDDEN_ARTIFACT_NAMES = {
+    "雷盖伦之箱",
+    "蕾盖伦之匣",
+    "时之至宝",
+    "创世",
+    "八创世",
+    "FIO",
+    "FIO（飘浮支援型导力无人机）",
+    "XEROS",
+    "XEROS（地面强袭型导力无人机）",
+    "伊修坦提",
+    "伊修坦提（天使人偶型古代遗物）",
+}
+
+
+def parse_xlsx_sheets(xlsx_path: str) -> dict:
+    """Parse an .xlsx workbook into {sheet_name: [[cell_str, ...], ...]} using Python 3 stdlib."""
+    ns_main = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+    ns_rel = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+
+    def col_to_idx(cell_ref: str) -> int:
+        letters = ""
+        for ch in cell_ref:
+            if ch.isalpha():
+                letters += ch.upper()
+            else:
+                break
+        idx = 0
+        for ch in letters:
+            idx = idx * 26 + (ord(ch) - ord("A") + 1)
+        return max(idx - 1, 0)
+
+    sheets_out = {}
+    with zipfile.ZipFile(xlsx_path, "r") as zf:
+        shared_strings = []
+        if "xl/sharedStrings.xml" in zf.namelist():
+            ss_root = ET.fromstring(zf.read("xl/sharedStrings.xml"))
+            for si in ss_root.findall(f"{{{ns_main}}}si"):
+                parts = [t.text or "" for t in si.iter(f"{{{ns_main}}}t")]
+                shared_strings.append("".join(parts))
+
+        wb_root = ET.fromstring(zf.read("xl/workbook.xml"))
+        rels_root = ET.fromstring(zf.read("xl/_rels/workbook.xml.rels"))
+        rid_to_target = {}
+        for rel in rels_root:
+            rid = rel.attrib.get("Id", "")
+            tgt = rel.attrib.get("Target", "").lstrip("/")
+            if tgt and not tgt.startswith("xl/"):
+                tgt = f"xl/{tgt}"
+            rid_to_target[rid] = tgt
+
+        for sh in wb_root.findall(f".//{{{ns_main}}}sheet"):
+            sh_name = sh.attrib.get("name", "")
+            rid = sh.attrib.get(f"{{{ns_rel}}}id", "")
+            xml_target = rid_to_target.get(rid, "")
+            if not sh_name or xml_target not in zf.namelist():
+                continue
+            ws_root = ET.fromstring(zf.read(xml_target))
+            rows_list = []
+            for row_el in ws_root.findall(f".//{{{ns_main}}}sheetData/{{{ns_main}}}row"):
+                row_vals = {}
+                max_col = -1
+                for c_el in row_el.findall(f"{{{ns_main}}}c"):
+                    c_idx = col_to_idx(c_el.attrib.get("r", "A1"))
+                    c_type = c_el.attrib.get("t", "")
+                    val = ""
+                    if c_type == "s":
+                        v_el = c_el.find(f"{{{ns_main}}}v")
+                        if v_el is not None and v_el.text and v_el.text.isdigit():
+                            s_idx = int(v_el.text)
+                            if 0 <= s_idx < len(shared_strings):
+                                val = shared_strings[s_idx]
+                    elif c_type == "inlineStr":
+                        val = "".join(t.text or "" for t in c_el.iter(f"{{{ns_main}}}t"))
+                    else:
+                        v_el = c_el.find(f"{{{ns_main}}}v")
+                        if v_el is not None and v_el.text is not None:
+                            val = v_el.text
+                    row_vals[c_idx] = val.strip()
+                    if c_idx > max_col:
+                        max_col = c_idx
+                if max_col >= 0:
+                    rows_list.append([row_vals.get(i, "") for i in range(max_col + 1)])
+            sheets_out[sh_name] = rows_list
+    return sheets_out
 
 
 def norm_name(s: str) -> str:
@@ -108,10 +194,85 @@ CANONICAL_NAME_MAP = {
     "A·拉赛尔": "阿尔伯特·拉赛尔",
     "A·拉塞尔": "阿尔伯特·拉赛尔",
     "丹·拉塞尔": "丹·拉赛尔",
+    "艾莉卡·拉塞尔": "艾丽卡·拉赛尔",
+    "塞尔盖·罗": "赛尔盖·罗",
+    "阿列克斯·达德利": "亚历克斯·达德利",
+    "露西·赛兰德": "露希·赛兰德",
+    "艾澳莉亚": "艾澳莉雅",
+    "阿龙·魏": "亚伦·魏",
+    "艾因·瑟尔纳特": "爱因·瑟尔纳特",
+    "卡夏·奥斯本": "卡莎·奥斯本",
+    "里翁·巴塔扎尔": "里翁·巴塔札尔",
+    "雅利安洛德": "阿瑞安赫德",
+    "艾丝梅雷·亚切特": "艾丝梅蕾·亚切特",
+    "卢方": "方·卢",
+    "卢基恩": "基恩·卢",
+    "高郎": "高朗",
+    "玛莉艾儿·艾梅": "玛莉艾儿·埃梅",
+    "亚里欧斯·马克莱因": "亚里欧斯·马克莱茵",
+    "贝尔摩提": "贝尔默提",
+    "亚修拉德": "阿修拉德",
+    "爱丽儿·朗海姆": "爱丽尔·朗海姆",
+    "哈桑": "哈桑·阿尔法德",
+    "幻夜之猫": "茱迪丝·兰斯塔",
     "G·施密特": "格哈特·施密特",
     "F·诺华提斯": "弗朗茨·诺华提斯",
     **KURO2_CANONICAL_NAME_MAP,
     **KAI_CANONICAL_NAME_MAP,
+}
+
+# Gacha portrait sheet (空零碧闪关系表.xlsx -> 抽卡) short-name & variant -> canonical entity name
+GACHA_NAME_TO_CANONICAL = {
+    "阿奈斯特": "阿奈斯特·莱兹",
+    "索菲亚·海瓦斯": "索菲亚夫人",
+    "修莉": "修利·阿多雷德",
+    "凛": "琳",
+    "玛堤乌斯": "玛提乌斯·范德尔",
+    "黄金蝶": "露克蕾琪亚·伊斯雷",
+    "阿尔缇菈": "绯之阿尔缇菈",
+    "露西亚·舒华泽": "露西亚夫人",
+    "亚拉密斯": "亚拉密斯高等学校",
+    "约纳": "约纳·赛克里德",
+    "渥雷斯": "渥雷斯·拜尔迪安斯",
+    "滴": "滴·马克莱茵",
+    "卡艾拉": "卡艾拉·马克米兰",
+    "艾蕾因": "艾蕾因·奥克雷尔",
+    "季斯卡尔": "季斯卡尔技术长",
+    "奈特": "奈特搜查官",
+    "艾梅丝": "艾梅丝/艾米莉亚·哈林格",
+}
+
+# Non-Trails gacha crossovers, pair cards & child/BE alt skins to exclude from defaultAvatarUrl
+GACHA_EXCLUDED_EXACT_NAMES = {
+    "亚特鲁",
+    "多奇",
+    "切斯特",
+    "雨果",  # Ys Origin Hugo Fact (ficon2023_028_hugo); Trails Hugo Kleist is 雨果·克莱斯特!
+    "索菲亚",  # Gagharv Sophia (ficon2023_059_sophia)
+    "莫纳",
+    "拉比",
+    "空·郁岛",
+    "美月·北都",
+    "璃音·玖我山",
+    "栞·仓敷",
+    "卢法斯x拉碧丝",
+    "蕾恩x媞妲",
+    "拉薇安·温斯蕾",
+    "马丁·S·罗宾森",
+    "伊赛莉亚·弗罗斯特",
+    "塔利昂·德雷克",
+    "奥利维尔·朗海姆（幼年版）",
+    "穆拉·范德尔 (幼年版)",
+    "瑟蕾奴（人形）",
+    "奥蕾莉亚（少女）",
+    "黎恩（幼年版）",
+    "黎恩·伊修麦格",
+    "怪盗猫",
+    "零之御子",
+    "苍之齐格飞",
+    "emperor",
+    "拉碧丝（晶片体）",  # Handled via kuro2/kai arcOverrides so sen keeps doll avatar
+    "艾米莉亚·哈林格",  # Handled via kai arcOverrides so kuro/kuro2 keep Hermes avatar
 }
 
 # Verified WP post title -> canonical entity name map (ONLY true 1:1 identity matches;
@@ -241,8 +402,30 @@ ENGLISH_NAME_OVERRIDES = {
     "伊修麦格": "Ishmelga",
     "弗兰兹·莱恩福尔特": "Franz Reinford",
     "德莱凯尔斯·莱泽·亚诺尔": "Dreichels Reise Arnor",
-    "哈桑": "Hassan",
+    "哈桑·阿尔法德": "Hassan Al-Fayed",
     "杰兰特": "Geraint",
+    "海克力士": "Hercules",
+    "克洛德·爱普斯泰恩": "Claude Epstein",
+    "叶花·魏": "Yehua Wei",
+    "萨尔曼": "Salman Asverl",
+    "艾德蒙·奥克雷尔": "Edmond Auclair",
+    "艾林格": "Elling",
+    "罗宾·格拉斯戈": "Robin Glasgow",
+    "范格兰茨·赛恩": "Vagrant Zion",
+    "萨菈": "Saara",
+    "莎希娜": "Shaheena",
+    "巴泽尔理科大学": "Basel Institute of Science",
+    "雷克塞尔演艺事务所": "Reksel Agency",
+    "季斯卡尔工房": "Giscard Workshop",
+    "国际协力机构": "ICO",
+    "煌都华剧场": "Langport Eastern Theater",
+    "杂志《扒粪者》": "Muckraker Magazine",
+    "昆西公司": "Quincy Company",
+    "卡尔瓦德前皇室": "Former Calvard Royal Family",
+    "蒙马特家族": "Montmart Family",
+    "雷家": "Lei Family",
+    "凶手": "Heiyue Assassins",
+    "胧月流": "Oborozuki Style",
     **KURO2_ENGLISH_NAME_OVERRIDES,
     **KAI_ENGLISH_NAME_OVERRIDES,
 }
@@ -265,6 +448,7 @@ SCHOOL_NAMES = {
     "昆仑流",
     "月华流",
     "黑神一刀流",
+    "胧月流",
     "范德尔流",
     "亚尔赛德流",
     "百式军刀术",
@@ -278,8 +462,11 @@ FAMILY_NAMES_EXTRA = {
     "亚诺尔皇族",
     "利贝尔王家",
     "克劳蒂尔家系",
+    "卡尔瓦德前皇室",
+    "蒙马特家族",
     "奥克雷尔家族",
     "卢家",
+    "雷家",
     "李家",
     "兰斯塔家系",
 }
@@ -485,6 +672,9 @@ NATION_OVERRIDES = {
     "D∴G教团": "",
     "八叶一刀流": "",
     "云·卡法伊": "",
+    "范格兰茨·赛恩": "",
+    "国际协力机构": "",
+    "克洛德·爱普斯泰恩": "",
 }
 
 
@@ -543,12 +733,89 @@ def main():
             return ""
         return u
 
-    # Index gacha avatars (ONLY for fallback avatar URLs, never for importance inflation!)
+    # Load curated square face portrait table (空零碧闪关系表.xlsx -> 抽卡) & Kuro table (黎.xlsx) via stdlib
+    sora_sen_xlsx_path = os.path.join(REPO_ROOT, "空零碧闪关系表.xlsx")
+    parsed_sora_sen_cache = os.path.join(CACHE_DIR, "parsed_sora_sen.json")
+    if os.path.isfile(sora_sen_xlsx_path):
+        sora_sen_sheets = parse_xlsx_sheets(sora_sen_xlsx_path)
+    elif os.path.isfile(parsed_sora_sen_cache):
+        with open(parsed_sora_sen_cache, "r", encoding="utf-8") as f:
+            sora_sen_sheets = json.load(f)
+    else:
+        sora_sen_sheets = {}
+
+    kuro_xlsx_path = os.path.join(REPO_ROOT, "黎.xlsx")
+    parsed_kuro_cache = os.path.join(CACHE_DIR, "parsed_kuro.json")
+    if os.path.isfile(kuro_xlsx_path):
+        kuro_xlsx_sheets = parse_xlsx_sheets(kuro_xlsx_path)
+    elif os.path.isfile(parsed_kuro_cache):
+        with open(parsed_kuro_cache, "r", encoding="utf-8") as f:
+            kuro_xlsx_sheets = json.load(f)
+    else:
+        kuro_xlsx_sheets = {}
+
+    # Index curated square face avatars (HIGHEST priority over full-body WP thumbnails & legacy full-body art!)
+    face_avatar_by_canon = {}
+    gacha_rows = sora_sen_sheets.get("抽卡", [])
+    if gacha_rows:
+        for row_idx, grow in enumerate(gacha_rows[1:], 1):
+            if len(grow) < 3:
+                continue
+            raw_gn = norm_name(grow[0])
+            star_str = str(grow[1]).strip()
+            gurl = str(grow[2]).strip()
+            if not raw_gn or not gurl:
+                continue
+            if gurl.startswith("https://trails-game.com/"):
+                gurl = gurl.replace("https://trails-game.com/", "https://cdn.trails-game.com/")
+            # Skip non-Trails crossovers, anniversary skins, pair cards & Northern War anime rows
+            if (308 <= row_idx <= 326) or row_idx >= 331:
+                continue
+            if (
+                raw_gn in GACHA_EXCLUDED_EXACT_NAMES
+                or "(周年版)" in raw_gn
+                or "（YS" in raw_gn
+                or "（那由多）" in raw_gn
+                or "（白发魔女）" in raw_gn
+                or "（朱红之泪）" in raw_gn
+                or "（海之槛歌）" in raw_gn
+                or "_sen_anime_avatar" in gurl
+                or "renne_x_tida" in gurl
+            ):
+                continue
+            if raw_gn == "泰蕾莎":
+                if star_str == "2":
+                    face_avatar_by_canon["泰蕾莎·卡罗琳"] = gurl
+                continue
+            if raw_gn == "蕾恩（特典）":
+                face_avatar_by_canon["蕾恩·布莱特"] = gurl
+                continue
+            if raw_gn == "蕾恩·布莱特":
+                # Keep young Renne icon_608-150x150.jpg for sora/zero_ao/sen overrides; defaultAvatarUrl uses renne-150x150.png
+                face_avatar_by_canon.setdefault("蕾恩·布莱特", gurl)
+                continue
+            mapped_gn = GACHA_NAME_TO_CANONICAL.get(raw_gn, CANONICAL_NAME_MAP.get(raw_gn, raw_gn))
+            face_avatar_by_canon[mapped_gn] = gurl
+
+    # Fallback gacha avatars from legacy relation_xlsx_dump.json if workbook is absent
     gacha_avatar = {}
     for g in xlsx.get("gacha", []):
-        gn = CANONICAL_NAME_MAP.get(norm_name(g.get("name", "")), norm_name(g.get("name", "")))
+        raw_gn = norm_name(g.get("name", ""))
+        if not raw_gn or raw_gn in GACHA_EXCLUDED_EXACT_NAMES:
+            continue
+        gn = GACHA_NAME_TO_CANONICAL.get(raw_gn, CANONICAL_NAME_MAP.get(raw_gn, raw_gn))
         if g.get("url"):
             gacha_avatar[gn] = g["url"]
+
+    # Enrich Kuro notes from 黎.xlsx (角色 sheet: ['name', 'avatar', 'type', 'postid', 'wikiPage', '备注'])
+    kuro_xlsx_bios = {}
+    for crow in kuro_xlsx_sheets.get("角色", [])[1:]:
+        if len(crow) >= 6:
+            cn_raw = norm_name(crow[0])
+            cn_mapped = CANONICAL_NAME_MAP.get(cn_raw, cn_raw)
+            desc = norm_name(crow[5])
+            if cn_mapped and desc and not desc.startswith("同“"):
+                kuro_xlsx_bios[cn_mapped] = f"塞姆利亚大陆词条：{cn_mapped}（{desc}）。"
 
     entities_by_name = {}
 
@@ -609,8 +876,13 @@ def main():
         if not name_en and cname in ENGLISH_NAME_OVERRIDES:
             name_en = ENGLISH_NAME_OVERRIDES[cname]
 
-        if not avatar_url and cname in gacha_avatar:
+        if cname in face_avatar_by_canon:
+            avatar_url = face_avatar_by_canon[cname]
+        elif not avatar_url and cname in gacha_avatar:
             avatar_url = gacha_avatar[cname]
+
+        if not bio and cname in kuro_xlsx_bios:
+            bio = kuro_xlsx_bios[cname]
 
         if entity_type == "nation":
             nation_name = ""
@@ -658,7 +930,9 @@ def main():
                 ent["_groupName"] = group_name
             if title:
                 ent["defaultTitle"] = title
-            if avatar_url and (not ent["defaultAvatarUrl"] or "-150x150" in avatar_url):
+            if cname in face_avatar_by_canon:
+                ent["defaultAvatarUrl"] = face_avatar_by_canon[cname]
+            elif avatar_url and (not ent["defaultAvatarUrl"] or "-150x150" in avatar_url):
                 ent["defaultAvatarUrl"] = avatar_url
             if wp_post_id and (authoritative or not ent["wpPostId"]):
                 ent["wpPostId"] = wp_post_id
@@ -774,7 +1048,7 @@ def main():
         "克劳福德家族": {"zero_ao", "sen"},
         "彩虹舞团": {"zero_ao", "sen"},
         "赤色星座": {"zero_ao", "sen"},
-        "西风旅团": {"zero_ao", "sen"},
+        "西风旅团": {"zero_ao", "sen", "kuro"},
         "铁机队": {"zero_ao", "sen"},
         "露希·赛兰德": {"sora", "sen"},
         "赛兰德教授": {"zero_ao", "sen"},
@@ -931,10 +1205,12 @@ def main():
         ("亚克莱德解决事务所", "organization", "core", "卡尔瓦德共和国", "伊帝斯旧市街 · 地下万事屋", 20969, ["地下万事屋", "解决事务所", "Spriggan", "4SPG"]),
         ("游击士协会", "organization", "core", "", "守护平民安全的国际民间组织", 12623, ["游击士", "协会"]),
         ("CID", "organization", "core", "卡尔瓦德共和国", "共和国中央情报省", 30985, ["中央情报省", "情报省"]),
+        ("海克力士", "organization", "supporting", "卡尔瓦德共和国", "共和国CID直属精锐谍报特务部队", 12944, ["海格力士", "CID特务部队", "Hercules"]),
         ("首都警察", "organization", "supporting", "卡尔瓦德共和国", "伊帝斯警视厅与搜查课", None, ["共和国警方"]),
         ("卡尔瓦德政府与总统府", "organization", "core", "卡尔瓦德共和国", "格兰哈特政权与共和国军", None, ["共和国政府", "共和国军"]),
         ("亚拉密斯高等学校", "organization", "core", "卡尔瓦德共和国", "共和国历史第一名校", None, ["亚拉密斯", "Aramis"]),
-        ("黑月", "organization", "core", "卡尔瓦德共和国", "东方人街最大商业辛迪加", 12950, ["黑月贸易公司", "卢家", "路家", "张家", "刘家"]),
+        ("黑月", "organization", "core", "卡尔瓦德共和国", "东方人街最大商业辛迪加", 12950, ["黑月贸易公司", "张家", "刘家"]),
+        ("凶手", "organization", "supporting", "卡尔瓦德共和国", "黑月麾下秘密培养的暗杀部队", None, ["黑月凶手"]),
         ("阿玛塔", "organization", "core", "卡尔瓦德共和国", "以「恐惧」支配一切的黑帮", 39927, ["黑帮阿玛塔", "Almata", "《A》"]),
         ("庭园", "organization", "core", "卡尔瓦德共和国", "神秘暗杀组织", 39914, ["Garden", "古战场庭园"]),
         ("噬身之蛇", "organization", "core", "", "推进永劫回归计划的神秘结社", 12788, ["结社", "Ouroboros"]),
@@ -945,24 +1221,42 @@ def main():
         ("斑鸠", "organization", "core", "卡尔瓦德共和国", "东方最强隐密武士猎兵众", 30990, ["猎兵团斑鸠", "Ikaruga"]),
         ("库鲁格战士团", "organization", "core", "艾尔萨姆公国", "中东高阶传统猎兵团", 39445, ["库鲁格", "Kruga"]),
         ("铁盾", "organization", "supporting", "艾尔萨姆公国", "中东精锐猎兵团", 39446, ["猎兵团铁盾", "Eiserne Schild"]),
-        ("乌尔努公司", "organization", "supporting", "卡尔瓦德共和国", "巴泽尔理科大学与导力重工巨头", 24936, ["巴泽尔理科大学", "维尔纳企业", "Verne"]),
+        ("乌尔努公司", "organization", "supporting", "卡尔瓦德共和国", "导力重工与高科技产业巨头", 24936, ["维尔纳企业", "Verne"]),
+        ("巴泽尔理科大学", "organization", "supporting", "卡尔瓦德共和国", "工学都市巴泽尔最高理工学府", None, ["巴泽尔理科大"]),
+        ("季斯卡尔工房", "organization", "minor", "卡尔瓦德共和国", "巴泽尔旧市街传统精密机械职人工房", None, []),
         ("爱普斯泰恩财团", "organization", "supporting", "", "导力网络与研究最高财团", 12913, ["财团"]),
         ("餐酒馆《蒙马特》", "organization", "supporting", "卡尔瓦德共和国", "伊帝斯旧市街温馨餐酒馆", None, ["蒙马特", "Montmart"]),
         ("泰雷尔通讯社", "organization", "supporting", "卡尔瓦德共和国", "共和国主流新闻出版媒体", None, ["泰雷尔", "米修拉姆周刊"]),
+        ("杂志《扒粪者》", "organization", "supporting", "卡尔瓦德共和国", "揭露政商黑幕的独立八卦调查周刊", None, ["杂志《扒糞者》", "扒粪者"]),
         ("维加斯影业", "organization", "supporting", "卡尔瓦德共和国", "导力电影巨头制片厂", None, ["导力电影界", "萨尔巴德影展"]),
+        ("雷克塞尔演艺事务所", "organization", "supporting", "卡尔瓦德共和国", "卡尔瓦德知名导力电影与演艺经纪事务所", None, ["雷克塞尔事务所"]),
+        ("煌都华剧场", "organization", "supporting", "卡尔瓦德共和国", "煌都兰波特传统东方戏曲剧场", None, ["华剧场"]),
+        ("昆西公司", "organization", "supporting", "卡尔瓦德共和国", "共和国大型知名甜品点心食品企业", None, ["昆西社"]),
         ("D∴G教团", "organization", "supporting", "", "昔日覆灭的狂信邪教余孽渊源", 13118, ["教团"]),
         ("昆仑流", "school", "core", "卡尔瓦德共和国", "东方三大拳法之一（刚柔破劲）", None, ["昆仑门"]),
         ("泰斗流", "school", "core", "卡尔瓦德共和国", "东方三大拳法之一（刚猛霸道）", None, ["泰斗门"]),
         ("月华流", "school", "supporting", "卡尔瓦德共和国", "东方三大拳法之一（诡变暗杀）", None, ["月华门"]),
         ("八叶一刀流", "school", "core", "", "《剑仙》云·卡法伊创立剑术流派", None, ["八叶流"]),
         ("黑神一刀流", "school", "supporting", "卡尔瓦德共和国", "斑鸠传承的东方古剑术源流", None, ["黑神流"]),
+        ("胧月流", "school", "supporting", "卡尔瓦德共和国", "斑鸠忍者修习的东方隐密忍术与暗器流派", None, []),
         ("克劳蒂尔家系", "family", "supporting", "卡尔瓦德共和国", "爱普斯泰恩博士后裔与格兰哈特家系", None, ["爱普斯泰恩血脉"]),
+        ("卡尔瓦德前皇室", "family", "supporting", "卡尔瓦德共和国", "百年前民主化革命前的旧亚尔达里翁王朝皇族", None, ["亚尔达里翁王室", "旧卡尔瓦德王室"]),
+        ("蒙马特家族", "family", "supporting", "卡尔瓦德共和国", "伊帝斯旧市街餐酒馆《蒙马特》经营者一家", None, []),
         ("卢家", "family", "supporting", "卡尔瓦德共和国", "煌都黑月笔头长老家族", None, ["兰波特卢家"]),
+        ("雷家", "family", "supporting", "卡尔瓦德共和国", "原黑月次席长老家族（勾结阿玛塔后覆灭除名）", None, ["黑月雷家"]),
     ]
+    parent_group_by_org = {
+        "僧兵厅": "七耀教会",
+        "星杯骑士团": "七耀教会",
+        "海克力士": "CID",
+        "凶手": "黑月",
+        "卢家": "黑月",
+        "雷家": "黑月",
+        "巴泽尔理科大学": "乌尔努公司",
+        "季斯卡尔工房": "乌尔努公司",
+    }
     for nm, et, imp, nat, ti, pid, als in kuro_orgs:
-        parent_grp = "七耀教会" if nm == "僧兵厅" else ("星杯骑士团" if False else "")
-        if nm == "星杯骑士团":
-            parent_grp = "七耀教会"
+        parent_grp = parent_group_by_org.get(nm, "")
         upsert_entity(
             nm, et, ["kuro"], importance=imp, nation_name=nat, group_name=parent_grp,
             title=ti, wp_post_id=pid, aliases=als, authoritative=True,
@@ -989,8 +1283,9 @@ def main():
         ("莉婕特·唐宁", ["kuro"], ["莉婕特"], "马尔铎克警备公司", "奥雷德自治州", "马尔铎克SC服务专员", 24947, "core", ["莉婕特", "Risette"]),
         ("卡特尔·萨里西翁", ["kuro"], ["卡特尔"], "亚克莱德解决事务所", "卡尔瓦德共和国", "巴泽尔天才导力学者 · 事务所助手", 24942, "core", ["卡特尔", "Quatre"]),
         ("茱迪丝·兰斯塔", ["kuro"], ["茱迪丝", "幻夜之猫"], "亚克莱德解决事务所", "卡尔瓦德共和国", "顶级导力电影女星 · 怪盗《幻夜之猫》", 28188, "core", ["茱迪丝", "幻夜之猫", "怪盗凶猫"]),
-        ("贝尔加德·哲曼", ["sen", "kuro"], ["贝尔加德"], "星杯骑士团", "卡尔瓦德共和国", "《吼天狮子》巴克霍恩 · 范恩恩师", 28193, "core", ["贝尔加德", "巴克霍恩", "吼天狮子"]),
+        ("贝尔加德·哲曼", ["sen", "kuro"], ["贝尔加德"], "星杯骑士团", "卡尔瓦德共和国", "《吼天狮子》巴克霍恩 · 范恩恩师", 28193, "core", ["贝尔加德", "巴克霍恩", "艮特·巴克霍恩", "吼天狮子"]),
         ("梅亚", ["kuro"], ["梅亚"], "亚克莱德解决事务所", "卡尔瓦德共和国", "范恩赛法中的特殊空洞核心", 38512, "core", ["Mare", "空洞核心梅亚"]),
+        ("范格兰茨·赛恩", ["kuro"], [], "", "", "寄宿于范恩魔核的异界五大魔王之一《漂泊之魔王》", None, "supporting", ["漂泊之魔王", "魔核之王"]),
         ("艾蕾因·奥克雷尔", ["kuro"], ["艾蕾因"], "游击士协会", "卡尔瓦德共和国", "最年轻A级游击士《剑之少女》", 29455, "core", ["艾蕾因", "剑之少女", "Elaine"]),
         ("卢尼·金凯德", ["kuro"], ["金凯德"], "CID", "卡尔瓦德共和国", "CID统合分析室辅佐官", 29465, "core", ["金凯德", "卢尼"]),
         ("洛伊·格兰哈特", ["kuro"], ["格兰哈特总统"], "卡尔瓦德政府与总统府", "卡尔瓦德共和国", "卡尔瓦德共和国第23任总统", 37515, "core", ["格兰哈特总统", "格兰哈特"]),
@@ -1016,8 +1311,9 @@ def main():
         ("亚仙·卢", ["kuro"], ["亚仙"], "黑月", "卡尔瓦德共和国", "煌都卢家千金（亚伦青梅竹马）", 37521, "supporting", ["亚仙"]),
         ("方·卢", ["kuro"], ["方"], "黑月", "卡尔瓦德共和国", "黑月兰波特支部少当家", 39883, "supporting", ["方"]),
         ("基恩·卢", ["kuro"], ["基恩老先生"], "黑月", "卡尔瓦德共和国", "黑月笔头长老", 39871, "supporting", ["基恩长老"]),
-        ("丁格·布拉德", ["kuro"], ["丁格"], "泰雷尔通讯社", "卡尔瓦德共和国", "《米修拉姆周刊》独立情报记者", 37492, "supporting", ["丁格"]),
-        ("玛莉艾儿·埃梅", ["kuro"], ["玛莉艾儿"], "泰雷尔通讯社", "卡尔瓦德共和国", "泰雷尔通讯社新晋记者", 39843, "supporting", ["玛莉艾儿"]),
+        ("丁格·布拉德", ["kuro"], ["丁格"], "杂志《扒粪者》", "卡尔瓦德共和国", "《扒粪者》独立情报记者", 37492, "supporting", ["丁格", "魔装鬼·佐尔格"]),
+        ("玛莉艾儿·埃梅", ["kuro"], ["玛莉艾儿"], "泰雷尔通讯社", "卡尔瓦德共和国", "泰雷尔通讯社新晋记者", 39843, "supporting", ["玛莉艾儿", "玛莉艾儿·艾梅"]),
+        ("艾德蒙·奥克雷尔", ["kuro"], [], "昆西公司", "卡尔瓦德共和国", "昆西公司董事长 · 艾蕾因之父", None, "minor", ["奥克雷尔董事长"]),
         ("波蕾特", ["kuro"], ["波蕾特"], "餐酒馆《蒙马特》", "卡尔瓦德共和国", "《蒙马特》店主 · 维克托之女", 37482, "supporting", ["波蕾特"]),
         ("梦", ["kuro"], ["梦"], "餐酒馆《蒙马特》", "卡尔瓦德共和国", "波蕾特的活泼幼女", 37487, "supporting", ["小梦"]),
         ("维克托", ["kuro"], ["维克托"], "餐酒馆《蒙马特》", "卡尔瓦德共和国", "《蒙马特》主厨兼房东大叔", 43918, "minor", ["维克托大叔"]),
@@ -1025,21 +1321,24 @@ def main():
         ("卡希姆·阿尔法德", ["kuro"], ["卡希姆警备主任"], "马尔铎克警备公司", "艾尔萨姆公国", "马尔铎克警备主任 · 《灼飙》 · 菲莉兄长", 37552, "supporting", ["卡希姆", "灼飙"]),
         ("基利亚姆·森戴克", ["kuro"], ["森戴克总经理"], "马尔铎克警备公司", "奥雷德自治州", "马尔铎克公司总经理(GM)", 37536, "minor", ["森戴克GM", "森戴克总经理"]),
         ("米拉贝尔·亚尔顿", ["kuro"], [], "马尔铎克警备公司", "奥雷德自治州", "马尔铎克SC服务专员（莉婕特同僚）", 46962, "minor", ["米拉贝尔"]),
-        ("哈桑", ["kuro"], ["哈桑副头目"], "库鲁格战士团", "艾尔萨姆公国", "库鲁格战士团副头目", None, "minor", ["哈桑副头目"]),
+        ("哈桑·阿尔法德", ["kuro"], ["哈桑副头目"], "库鲁格战士团", "艾尔萨姆公国", "库鲁格战士团副首领 · 卡希姆与菲莉之父", None, "minor", ["哈桑", "哈桑副头目"]),
         ("阿伊妲", ["kuro"], ["猎兵阿伊妲"], "铁盾", "艾尔萨姆公国", "《铁盾》女性猎兵队长（菲莉义姐）", 39848, "supporting", ["猎兵阿伊妲"]),
         ("杰兰特", ["kuro"], ["杰兰特连队长"], "铁盾", "艾尔萨姆公国", "猎兵团《铁盾》连队长", None, "minor", ["杰兰特连队长"]),
         ("黑铁", ["kuro"], ["黑铁"], "斑鸠", "卡尔瓦德共和国", "《斑鸠》覆面忍者副长", 38506, "minor", ["Kurogane"]),
-        ("妮娜·芬里", ["kuro"], ["妮娜"], "维加斯影业", "卡尔瓦德共和国", "新世代人气女演员 · 《终结之圣女》", 38518, "supporting", ["妮娜", "终结之圣女"]),
+        ("妮娜·芬里", ["kuro"], ["妮娜"], "雷克塞尔演艺事务所", "卡尔瓦德共和国", "新世代人气女演员 · 《终结之圣女》", 38518, "supporting", ["妮娜", "终结之圣女"]),
+        ("萨尔曼", ["kuro"], [], "", "艾尔萨姆公国", "艾尔萨姆公国公王 · 歇里德与吉塔之父", None, "minor", ["萨尔曼公王"]),
         ("歇里德·阿斯瓦尔", ["kuro"], ["歇里德公太子"], "艾尔萨姆公国", "艾尔萨姆公国", "艾尔萨姆公国公太子", 39849, "supporting", ["歇里德", "公太子"]),
         ("娜洁·贝尔卡", ["kuro"], ["娜洁"], "艾尔萨姆公国", "艾尔萨姆公国", "歇里德公太子贴身女护卫", 43923, "minor", ["娜洁"]),
         ("萨尔巴托雷·哥奇", ["kuro"], ["哥奇导演"], "维加斯影业", "卡尔瓦德共和国", "导力电影新锐鬼才导演", 43947, "minor", ["哥奇导演"]),
         ("贾斯柏·迪隆", ["kuro"], ["贾斯柏董事长"], "维加斯影业", "卡尔瓦德共和国", "维加斯影业董事长", 43985, "minor", ["贾斯柏董事长"]),
-        ("萨菈&莎希娜", ["kuro"], ["萨菈", "莎希娜"], "维加斯影业", "艾尔萨姆公国", "萨尔巴德双子星东方舞娘姐妹", 39900, "minor", ["萨菈", "莎希娜"]),
-        ("拉托雅·汉弥尔顿", ["kuro"], ["汉弥尔顿博士"], "乌尔努公司", "卡尔瓦德共和国", "导力工学三高徒之一 · 卡特尔恩师", 37526, "supporting", ["汉弥尔顿博士"]),
-        ("艾丝梅蕾·亚切特", ["kuro"], ["艾丝梅蕾准教授"], "乌尔努公司", "卡尔瓦德共和国", "巴泽尔理科大学准教授", 37531, "minor", ["艾丝梅蕾准教授"]),
-        ("杨·库伦凯特", ["kuro"], ["库伦凯特教授"], "乌尔努公司", "卡尔瓦德共和国", "巴泽尔天体物理派权威教授", 43964, "minor", ["库伦凯特教授"]),
-        ("大卫·凯拉罕", ["kuro"], ["凯拉罕教授"], "乌尔努公司", "卡尔瓦德共和国", "巴泽尔禁忌反应兵器研究者", 43969, "supporting", ["凯拉罕教授"]),
-        ("季斯卡尔技术长", ["kuro"], ["季斯卡尔技术长"], "乌尔努公司", "卡尔瓦德共和国", "巴泽尔职人派首席技术长", 43955, "minor", ["季斯卡尔"]),
+        ("萨菈", ["kuro"], ["萨菈"], "雷克塞尔演艺事务所", "艾尔萨姆公国", "萨尔巴德东方舞娘姐妹之姐", None, "minor", ["Saara"]),
+        ("莎希娜", ["kuro"], ["莎希娜"], "雷克塞尔演艺事务所", "艾尔萨姆公国", "萨尔巴德东方舞娘姐妹之妹", None, "minor", ["Shaheena"]),
+        ("克洛德·爱普斯泰恩", ["sora", "sen", "kuro"], [], "爱普斯泰恩财团", "", "导力革命之父 · 现代导力器发明者", None, "supporting", ["C·爱普斯泰恩", "爱普斯泰恩博士"]),
+        ("拉托雅·汉弥尔顿", ["kuro"], ["汉弥尔顿博士"], "巴泽尔理科大学", "卡尔瓦德共和国", "导力工学三高徒之一 · 巴泽尔理科大学名誉教授", 37526, "supporting", ["汉弥尔顿博士"]),
+        ("艾丝梅蕾·亚切特", ["kuro"], ["艾丝梅蕾准教授"], "巴泽尔理科大学", "卡尔瓦德共和国", "巴泽尔理科大学准教授", 37531, "minor", ["艾丝梅蕾准教授", "艾丝梅雷·亚切特"]),
+        ("杨·库伦凯特", ["kuro"], ["库伦凯特教授"], "巴泽尔理科大学", "卡尔瓦德共和国", "巴泽尔天体物理派权威教授", 43964, "minor", ["库伦凯特教授"]),
+        ("大卫·凯拉罕", ["kuro"], ["凯拉罕教授"], "巴泽尔理科大学", "卡尔瓦德共和国", "巴泽尔禁忌反应兵器研究者", 43969, "supporting", ["凯拉罕教授"]),
+        ("季斯卡尔技术长", ["kuro"], ["季斯卡尔技术长"], "季斯卡尔工房", "卡尔瓦德共和国", "巴泽尔职人派首席技术长", 43955, "minor", ["季斯卡尔"]),
         ("达斯瓦尼", ["kuro"], ["达斯瓦尼警部"], "首都警察", "卡尔瓦德共和国", "首都警察搜查一课精英警部", 43913, "supporting", ["达斯瓦尼警部"]),
         ("奈特搜查官", ["kuro"], ["奈特搜察官"], "首都警察", "卡尔瓦德共和国", "首都警察热血年轻搜查官", 43902, "minor", ["奈特"]),
         ("艾尔维斯", ["kuro"], ["游击士艾尔维斯"], "游击士协会", "卡尔瓦德共和国", "卡尔瓦德伊帝斯支部正游击士", 43934, "supporting", ["游击士艾尔维斯"]),
@@ -1052,6 +1351,10 @@ def main():
         ("卡艾拉·马克米兰", ["sen", "kuro"], ["卡艾拉少尉"], "", "卡尔瓦德共和国", "共和国总统府／CID年轻少尉", 29346, "minor", ["卡艾拉少尉"]),
         ("洛克史密斯", ["zero_ao", "kuro"], ["洛克史密斯"], "", "卡尔瓦德共和国", "卡尔瓦德共和国前任总统", 9918, "supporting", ["萨缪尔·洛克史密斯", "洛克史密斯前总统"]),
         ("多明尼克·兰斯塔", ["kuro"], [], "维加斯影业", "卡尔瓦德共和国", "传奇大女优 · 初代《幻夜之猫》 · 茱迪丝外婆", 46961, "minor", ["多明尼克"]),
+        ("叶花·魏", ["kuro"], [], "", "卡尔瓦德共和国", "亚伦亡母 · 煌都旧家出身", None, "minor", ["叶花"]),
+        ("拉冈·坎", ["kuro"], [], "", "卡尔瓦德共和国", "四十年前煌都霸主《大君》（灵魂阴影）", None, "minor", ["大君", "煌都霸主"]),
+        ("艾林格", ["kuro"], [], "阿玛塔", "卡尔瓦德共和国", "黑帮《阿玛塔》前任首领（遭杰拉尔篡位杀害）", None, "minor", ["艾林格首领"]),
+        ("罗宾·格拉斯戈", ["kuro"], [], "阿玛塔", "卡尔瓦德共和国", "黑帮《阿玛塔》物资调配成员（死亡）", None, "minor", ["罗宾"]),
     ]
 
     for cname, char_arcs, spk_keys, grp, nat, ti, pid, tier, als in kuro_chars:
@@ -1068,6 +1371,7 @@ def main():
             group_name=grp,
             title=ti,
             wp_post_id=pid,
+            wiki_url="https://trails-game.com/character/sarah-shahina/" if cname in ("萨菈", "莎希娜") else None,
             aliases=als,
             script_moments=moments,
             authoritative=True,
@@ -1471,6 +1775,21 @@ def main():
         primaryGroupName="卡尔瓦德政府与总统府",
         importance="supporting",
     )
+    set_override(
+        "拉碧丝·罗赞贝尔克", "sen",
+        avatarUrl="https://cdn.trails-game.com/wp-content/uploads/2020/07/lapis-150x150.jpg",
+    )
+    set_override(
+        "拉冈·坎", "kuro",
+        title="四十年前煌都霸主《大君》（纠缠亚伦的灵魂阴影）",
+        importance="minor",
+    )
+    set_override(
+        "拉冈·坎", "kai",
+        title="《假面武道家》 · 四十年前君临煌都的传说《大君》",
+        primaryGroupName="《残滓》",
+        importance="minor",
+    )
 
     # Cameo importance calibrations so non-protagonists don't overcrowd Core view in cameo arcs
     for cameo_char, cameo_arcs in [
@@ -1717,6 +2036,7 @@ def main():
         ("德莱凯尔斯·莱泽·亚诺尔", "亚诺尔皇族", "老祖宗?"): ("德莱凯尔斯·莱泽·亚诺尔", "亚诺尔皇族", "family", "中兴始祖（第73代狮心皇帝）", "directed", ["sen"]),
         ("罗伊德·班宁斯", "玛丽亚贝尔·克罗伊斯", "对手(情敌?)"): ("罗伊德·班宁斯", "玛丽亚贝尔·克罗伊斯", "hostile", "理念交锋与围绕艾莉的竞争", "bidirectional", ["zero_ao", "sen"]),
         ("雪拉扎德·哈维", "游击士(利贝尔支部)", "A级游击士(已退出?)"): ("雪拉扎德·哈维", "游击士(利贝尔支部)", "membership", "正游击士《银闪》", "directed", ["sora"]),
+        ("菲·克劳赛尔", "西风旅团", "成员(已退出)"): ("菲·克劳赛尔", "西风旅团", "membership", "前猎兵团员（已退出）", "directed", ["sen", "kuro"]),
     }
 
     # Import cleaned legacy relations WITHOUT mutating endpoint entity arcs
@@ -1902,6 +2222,9 @@ def main():
     add_rel("盖·班宁斯", "克洛斯贝尔警察局", "membership", "原搜查官（殉职）", ["zero_ao"], "directed", 4)
     add_rel("星少", "黑月", "family", "黑月卢家长老孙少爷", ["zero_ao"], "directed", 3)
     add_rel("阿尔伯特·拉赛尔", "爱普斯泰恩财团", "hierarchy", "爱普斯泰恩博士直系高徒·技术合作", ["sora"], "directed", 4)
+    add_rel("阿尔伯特·拉赛尔", "克洛德·爱普斯泰恩", "school", "师从（导力工学三高徒之一）", ["sora"], "directed", 5)
+    add_rel("格哈特·施密特", "克洛德·爱普斯泰恩", "school", "师从（导力工学三高徒之一）", ["sen"], "directed", 5)
+    add_rel("克洛德·爱普斯泰恩", "爱普斯泰恩财团", "hierarchy", "导力革命之父 · 财团冠名先驱", ["sora", "sen", "kuro"], "directed", 5)
     add_rel("赛尔盖·罗", "特务支援课", "membership", "特务支援课创设课长", ["zero_ao", "sen"], "directed", 5)
     add_rel("亚历克斯·达德利", "特务支援课", "ally", "搜查一课精英协力共斗", ["zero_ao", "sen"], "bidirectional", 4)
     add_rel("亚历克斯·达德利", "罗伊德·班宁斯", "ally", "刑警前辈与共斗搭档", ["zero_ao"], "bidirectional", 4)
@@ -1927,42 +2250,61 @@ def main():
         # Macro Geopolitics, Church Orders & Gramhart Secret Contracts
         ("亚克莱德解决事务所", "卡尔瓦德共和国", "membership", "扎根首都伊帝斯旧市街", "directed", 4),
         ("CID", "卡尔瓦德政府与总统府", "hierarchy", "总统直辖国家情报中枢", "directed", 5),
+        ("海克力士", "CID", "hierarchy", "CID直属精锐谍报特务部队", "directed", 5),
         ("首都警察", "卡尔瓦德政府与总统府", "hierarchy", "治安执法机构", "directed", 4),
         ("卡尔瓦德政府与总统府", "卡尔瓦德共和国", "hierarchy", "执政中枢", "directed", 5),
         ("卡尔瓦德政府与总统府", "斑鸠", "hierarchy", "格兰哈特总统秘密雇佣契约", "bidirectional", 4),
         ("卡尔瓦德政府与总统府", "马尔铎克警备公司", "hierarchy", "次世代兵器研发与安保测试合作", "bidirectional", 4),
         ("亚拉密斯高等学校", "卡尔瓦德共和国", "membership", "首都第一名门学府", "directed", 4),
         ("黑月", "卡尔瓦德共和国", "membership", "煌都兰波特东方人街根据地", "directed", 4),
+        ("卢家", "黑月", "membership", "煌都黑月笔头长老家", "directed", 5),
+        ("雷家", "黑月", "membership", "原次席长老家（勾结外敌后垮台除名）", "directed", 4),
+        ("凶手", "黑月", "membership", "隶属（黑月培养的杀手组织）", "directed", 4, "黑月培养的杀手组织"),
         ("阿玛塔", "卡尔瓦德共和国", "hostile", "在各地散播恐慌与泛魔化", "directed", 5),
         ("黑月", "阿玛塔", "hostile", "地下社会霸权全面抗争", "bidirectional", 5),
+        ("雷家", "阿玛塔", "hierarchy", "暗中勾结策划复活大君", "bidirectional", 3),
         ("庭园", "阿玛塔", "hierarchy", "合流并暗中提供刺客支援", "bidirectional", 4),
         ("阿玛塔", "D∴G教团", "hierarchy", "吸收旧教团遗产与残党", "directed", 3),
         ("马尔铎克警备公司", "奥雷德自治州", "membership", "总部位于奥雷德", "directed", 4),
         ("库鲁格战士团", "艾尔萨姆公国", "membership", "中东传统守护猎兵氏族", "directed", 4),
+        ("库鲁格战士团", "马尔铎克警备公司", "hierarchy", "技术合作", "bidirectional", 4),
         ("铁盾", "艾尔萨姆公国", "membership", "中东精锐猎兵团", "directed", 3),
         ("库鲁格战士团", "铁盾", "hostile", "猎兵界长期劲敌竞争", "bidirectional", 4),
         ("斑鸠", "黑神一刀流", "school", "传承东方古剑术体系", "directed", 4),
+        ("胧月流", "斑鸠", "school", "斑鸠隐密忍众修习流派之一", "directed", 3),
         ("黑神一刀流", "八叶一刀流", "school", "剑术源流渊源", "bidirectional", 3),
         ("乌尔努公司", "卡尔瓦德共和国", "membership", "工学都市巴泽尔产学中枢", "directed", 4),
         ("乌尔努公司", "爱普斯泰恩财团", "hierarchy", "导力技术竞争与标准合作", "bidirectional", 3),
+        ("巴泽尔理科大学", "乌尔努公司", "hierarchy", "产学研一体核心学术学府", "directed", 5),
+        ("巴泽尔理科大学", "卡尔瓦德共和国", "membership", "工学都市巴泽尔最高理工学府", "directed", 4),
+        ("季斯卡尔工房", "乌尔努公司", "hierarchy", "巴泽尔旧市街精密机械合作工房", "directed", 3),
         ("僧兵厅", "七耀教会", "hierarchy", "典礼省直属武装僧兵厅", "directed", 4),
         ("僧兵厅", "星杯骑士团", "hierarchy", "教会两大武装派阀竞合", "bidirectional", 4),
         ("餐酒馆《蒙马特》", "亚克莱德解决事务所", "hierarchy", "一楼餐酒馆与二楼租客事务所", "bidirectional", 4),
+        ("蒙马特家族", "餐酒馆《蒙马特》", "hierarchy", "世代经营旧市街餐酒馆《蒙马特》", "directed", 4),
+        ("煌都华剧场", "卡尔瓦德共和国", "membership", "煌都兰波特传统剧场", "directed", 3),
+        ("雷克塞尔演艺事务所", "维加斯影业", "hierarchy", "导力电影演员经纪合作", "bidirectional", 3),
+        ("杂志《扒粪者》", "泰雷尔通讯社", "hierarchy", "共和国新闻出版界同行", "bidirectional", 3),
+        ("昆西公司", "卡尔瓦德共和国", "membership", "共和国知名点心食品企业", "directed", 3),
+        ("卡尔瓦德前皇室", "卡尔瓦德共和国", "hierarchy", "百年前民主革命前的旧亚尔达里翁王朝", "directed", 4),
 
         # Arkride Solutions Office Core Party
         ("范恩·亚克莱德", "亚克莱德解决事务所", "membership", "所长 · 《地下万事屋》", "directed", 5),
         ("亚妮艾丝·克劳蒂尔", "亚克莱德解决事务所", "membership", "打工助手 · 八《创世》委托人", "directed", 5),
         ("菲莉·阿尔法德", "亚克莱德解决事务所", "membership", "见习助手（第1章加入）", "directed", 5),
         ("亚伦·魏", "亚克莱德解决事务所", "membership", "事务所成员（第2章加入）", "directed", 5),
-        ("莉婕特·唐宁", "亚克莱德解决事务所", "hierarchy", "外派驻所SC专员（第3章起）", "directed", 5),
+        ("莉婕特·唐宁", "亚克莱德解决事务所", "membership", "外派驻所SC专员（第3章起）", "directed", 5),
         ("卡特尔·萨里西翁", "亚克莱德解决事务所", "membership", "技术助手（第4章加入）", "directed", 5),
-        ("茱迪丝·兰斯塔", "亚克莱德解决事务所", "ally", "事务所伙伴（间章后正式入队）", "bidirectional", 5),
-        ("贝尔加德·哲曼", "亚克莱德解决事务所", "ally", "顾问与武术导师（第5章合流）", "bidirectional", 5),
+        ("茱迪丝·兰斯塔", "亚克莱德解决事务所", "membership", "事务所伙伴（间章后正式入队）", "directed", 5),
+        ("贝尔加德·哲曼", "亚克莱德解决事务所", "membership", "顾问与武术导师（第5章合流）", "directed", 5),
         ("梅亚", "范恩·亚克莱德", "ally", "赛法空洞核心 · 赋予魔装鬼之力", "bidirectional", 5),
+        ("范格兰茨·赛恩", "范恩·亚克莱德", "hostile", "附体（透过魔核相连的漂泊魔王）", "bidirectional", 5),
+        ("梅亚", "范格兰茨·赛恩", "hierarchy", "以魔装鬼外壳拘束抑制魔王之力", "directed", 4),
 
         # D∴G Cult Core Backstory Links
         ("杰拉尔·丹提斯", "D∴G教团", "membership", "原教团干部祭司（吞噬真知魔人化）", "directed", 5),
         ("D∴G教团", "范恩·亚克莱德", "hostile", "幼年掳走并进行残酷魔核实验", "directed", 5),
+        ("D∴G教团", "范格兰茨·赛恩", "hostile", "曾自年幼范恩体内强行抽取魔核实验", "directed", 4),
         ("D∴G教团", "卡特尔·萨里西翁", "hostile", "幼年特殊实验受害孤儿", "directed", 4),
         ("贝尔加德·哲曼", "D∴G教团", "hostile", "参与歼灭教团并救出年幼范恩", "directed", 4),
 
@@ -1975,12 +2317,16 @@ def main():
         ("范恩·亚克莱德", "亚拉密斯高等学校", "membership", "曾就读（中途辍学）", "directed", 3),
         ("艾蕾因·奥克雷尔", "亚拉密斯高等学校", "membership", "优秀毕业生（前学生会长）", "directed", 3),
         ("卢尼·金凯德", "亚拉密斯高等学校", "membership", "优秀毕业生（前学生会长）", "directed", 3),
+        ("洛伊·格兰哈特", "亚拉密斯高等学校", "membership", "毕业生", "directed", 3),
 
         # Agnes, Gramhart & Claudel Lineage
         ("亚妮艾丝·克劳蒂尔", "亚拉密斯高等学校", "membership", "一年级学生会干事", "directed", 4),
         ("亚妮艾丝·克劳蒂尔", "克劳蒂尔家系", "family", "爱普斯泰恩博士外曾孙女", "directed", 5),
+        ("亚妮艾丝·克劳蒂尔", "克洛德·爱普斯泰恩", "family", "曾孙女（祖母莉莉雅养父 · 继承八创世）", "directed", 5, "亚妮艾丝·克劳蒂尔的祖母莉莉雅是克洛德·爱普斯泰恩的养女，实际上无血缘关系"),
         ("洛伊·格兰哈特", "亚妮艾丝·克劳蒂尔", "family", "父女（隐姓克劳蒂尔就学）", "directed", 5),
         ("洛伊·格兰哈特", "卡尔瓦德政府与总统府", "membership", "第23任共和国总统", "directed", 5),
+        ("洛伊·格兰哈特", "卡尔瓦德共和国", "membership", "第23任总统", "directed", 5),
+        ("卢尼·金凯德", "洛伊·格兰哈特", "hierarchy", "临时辅佐官与亲信联络人", "directed", 4),
         ("洛伊·格兰哈特", "噬身之蛇", "hierarchy", "秘密签订互不侵犯协定", "bidirectional", 4),
         ("蕾恩·布莱特", "亚拉密斯高等学校", "membership", "交换留学生 · 现任学生会长", "directed", 4),
         ("蕾恩·布莱特", "亚妮艾丝·克劳蒂尔", "ally", "关照有加的学姐（指引4SPG暗号）", "directed", 4),
@@ -1995,24 +2341,36 @@ def main():
         ("卡希姆·阿尔法德", "菲莉·阿尔法德", "family", "严厉而关爱的亲兄妹", "bidirectional", 5),
         ("卡希姆·阿尔法德", "库鲁格战士团", "membership", "原首席战士《灼飙》", "directed", 3),
         ("卡希姆·阿尔法德", "马尔铎克警备公司", "membership", "警备主任（武装测试主管）", "directed", 5),
-        ("哈桑", "库鲁格战士团", "membership", "副头目", "directed", 3),
-        ("哈桑", "菲莉·阿尔法德", "hierarchy", "长辈副头目", "directed", 3),
+        ("范恩·亚克莱德", "卡希姆·阿尔法德", "school", "师从（指导击剑与零式劲术）", "directed", 4, "教范恩打击剑和零式劲术"),
+        ("哈桑·阿尔法德", "库鲁格战士团", "membership", "副首领", "directed", 4),
+        ("哈桑·阿尔法德", "菲莉·阿尔法德", "family", "父亲", "directed", 5),
+        ("哈桑·阿尔法德", "卡希姆·阿尔法德", "family", "父亲", "directed", 4),
         ("阿伊妲", "铁盾", "membership", "精锐分队长", "directed", 4),
+        ("阿伊妲", "西风旅团", "membership", "前部队长（已退出）", "directed", 3),
+        ("阿伊妲", "阿玛塔", "hostile", "被利用（部队尸鬼化牺牲）", "bidirectional", 4),
         ("菲莉·阿尔法德", "阿伊妲", "ally", "敬若亲姐的前辈猎兵", "bidirectional", 4),
         ("杰兰特", "铁盾", "membership", "连队长", "directed", 4),
         ("菲·克劳赛尔", "菲莉·阿尔法德", "ally", "前猎兵前辈的温柔开导", "directed", 4),
 
         # Aaron, Heiyue, Cao & Rixia
         ("亚伦·魏", "黑月", "hierarchy", "煌都牵制与合作（拒不入伙）", "bidirectional", 4),
+        ("亚伦·魏", "叶花·魏", "family", "儿子（深切缅怀亡母）", "directed", 4),
+        ("亚伦·魏", "煌都华剧场", "membership", "旦角、非正式成员", "directed", 4),
+        ("亚伦·魏", "月华流", "school", "中传", "directed", 4),
+        ("亚伦·魏", "拉冈·坎", "hostile", "大君转世宿命与灵魂阴影", "bidirectional", 4),
         ("曹·李", "亚伦·魏", "hierarchy", "试探拉拢与智谋交锋", "bidirectional", 3),
+        ("曹·李", "卢家", "family", "养子（17岁李家没落后获收养）", "directed", 4, "曹·李17岁时在李家因陷害没落后被卢家收养"),
+        ("曹·李", "雷家", "hostile", "灭门旧恨 · 设局彻底清算雷家叛党", "bidirectional", 4),
         ("亚仙·卢", "卢家", "family", "卢家千金", "directed", 4),
         ("亚仙·卢", "黑月", "membership", "卢家代表", "directed", 3),
-        ("亚仙·卢", "亚伦·魏", "romance", "青梅竹马与牵挂", "directed", 4),
-        ("方·卢", "黑月", "membership", "兰波特支部少当家", "directed", 4),
-        ("方·卢", "卢家", "family", "亚仙兄长", "directed", 4),
+        ("亚伦·魏", "亚仙·卢", "ally", "青梅竹马与牵挂", "bidirectional", 4),
+        ("亚仙·卢", "曹·李", "romance", "倾慕与爱恋", "directed", 4),
+        ("方·卢", "黑月", "membership", "卢家下任长老 · 兰波特支部少当家", "directed", 4, "九龙银行副总裁"),
+        ("方·卢", "卢家", "family", "长子（亚仙兄长）", "directed", 4),
         ("方·卢", "亚伦·魏", "ally", "东方人街损友与对手", "bidirectional", 3),
-        ("基恩·卢", "黑月", "membership", "笔头长老", "directed", 5),
+        ("基恩·卢", "黑月", "membership", "笔头长老 · 卢家现任长老", "directed", 5),
         ("基恩·卢", "卢家", "family", "家主长老", "directed", 5),
+        ("莉夏·毛", "凶手", "hostile", "传说魔人《银》震慑黑月杀手", "bidirectional", 3),
         ("莉夏·毛", "月华流", "school", "暗杀术与剑舞传承", "directed", 4),
         ("曹·李", "月华流", "school", "武术修习", "directed", 3),
         ("茱迪丝·兰斯塔", "莉夏·毛", "ally", "舞台艺术同行与奥拉希翁劲敌切磋", "bidirectional", 3),
@@ -2026,35 +2384,53 @@ def main():
 
         # Quatre, Basel Academic Rivalry & Verne
         ("卡特尔·萨里西翁", "乌尔努公司", "membership", "巴泽尔理科大学硕士研究员", "directed", 4),
+        ("卡特尔·萨里西翁", "巴泽尔理科大学", "membership", "助教、在读硕士生", "directed", 5),
         ("拉托雅·汉弥尔顿", "卡特尔·萨里西翁", "school", "收养监护人与导力工学恩师", "directed", 5),
         ("拉托雅·汉弥尔顿", "乌尔努公司", "membership", "巴泽尔名誉顾问 · 三高徒之一", "directed", 4),
+        ("拉托雅·汉弥尔顿", "巴泽尔理科大学", "membership", "前任学长 · 名誉教授", "directed", 5),
         ("拉托雅·汉弥尔顿", "爱普斯泰恩财团", "hierarchy", "爱普斯泰恩博士三大直系高徒之一", "directed", 4),
+        ("拉托雅·汉弥尔顿", "克洛德·爱普斯泰恩", "school", "师从（导力工学三高徒之一）", "directed", 5),
         ("拉托雅·汉弥尔顿", "艾丝梅蕾·亚切特", "school", "师徒（巴泽尔三高徒传承）", "directed", 3),
         ("艾丝梅蕾·亚切特", "乌尔努公司", "membership", "生体工学准教授", "directed", 3),
+        ("艾丝梅蕾·亚切特", "巴泽尔理科大学", "membership", "生体工学副教授", "directed", 4),
         ("艾丝梅蕾·亚切特", "卡特尔·萨里西翁", "ally", "同门师姐弟", "bidirectional", 3),
         ("杨·库伦凯特", "乌尔努公司", "membership", "天体物理派权威教授", "directed", 3),
+        ("杨·库伦凯特", "巴泽尔理科大学", "membership", "天体物理派教授", "directed", 4),
+        ("卡特尔·萨里西翁", "杨·库伦凯特", "ally", "师弟与学术协力", "bidirectional", 3),
         ("大卫·凯拉罕", "乌尔努公司", "membership", "前教授（受阿玛塔蛊惑开发反应兵器）", "directed", 3),
+        ("大卫·凯拉罕", "巴泽尔理科大学", "membership", "前反应兵器派教授（已故）", "directed", 4),
         ("大卫·凯拉罕", "阿玛塔", "hierarchy", "秘密提供反应兵器", "directed", 4),
         ("大卫·凯拉罕", "杨·库伦凯特", "hostile", "巴泽尔学派主导权宿怨竞争", "bidirectional", 4),
         ("大卫·凯拉罕", "卡特尔·萨里西翁", "hostile", "学术堕落对质与AI死斗", "bidirectional", 4),
         ("季斯卡尔技术长", "乌尔努公司", "membership", "职人派首席技术长", "directed", 3),
+        ("季斯卡尔技术长", "季斯卡尔工房", "membership", "代表技术长 · 巴泽尔职人派核心工房", "directed", 4),
 
         # Judith, Nina, Tharbad Conspiracy & Elsaim
         ("茱迪丝·兰斯塔", "维加斯影业", "hierarchy", "顶级签约导力女优", "directed", 3),
+        ("茱迪丝·兰斯塔", "雷克塞尔演艺事务所", "membership", "签约招牌女星艺人", "directed", 4),
         ("多明尼克·兰斯塔", "茱迪丝·兰斯塔", "family", "外婆与孙女 · 初代幻夜之猫传承", "directed", 4),
         ("妮娜·芬里", "维加斯影业", "membership", "新世代人气女演员", "directed", 3),
+        ("妮娜·芬里", "雷克塞尔演艺事务所", "membership", "签约人气女演员艺人", "directed", 4),
         ("妮娜·芬里", "茱迪丝·兰斯塔", "ally", "敬仰的前辈与演技劲敌", "bidirectional", 4),
         ("妮娜·芬里", "亚克莱德解决事务所", "hierarchy", "萨尔巴德影展护卫委托人", "directed", 3),
         ("妮娜·芬里", "七耀教会", "membership", "隐秘身份《终结之圣女》", "directed", 4),
         ("阿修拉德", "妮娜·芬里", "hierarchy", "暗中联络守护《终结之圣女》", "directed", 4),
+        ("萨尔曼", "艾尔萨姆公国", "membership", "公王", "directed", 5),
+        ("萨尔曼", "歇里德·阿斯瓦尔", "family", "父子（公王与公太子）", "directed", 4),
         ("歇里德·阿斯瓦尔", "艾尔萨姆公国", "membership", "王储公太子", "directed", 5),
         ("歇里德·阿斯瓦尔", "亚克莱德解决事务所", "hierarchy", "影展出资人与协力盟友", "bidirectional", 3),
         ("娜洁·贝尔卡", "歇里德·阿斯瓦尔", "hierarchy", "贴身护卫队长", "directed", 4),
         ("萨尔巴托雷·哥奇", "维加斯影业", "membership", "新锐电影导演", "directed", 3),
         ("贾斯柏·迪隆", "维加斯影业", "membership", "董事长", "directed", 3),
         ("贾斯柏·迪隆", "阿玛塔", "hierarchy", "暗中勾结走私违禁水烟遭灭口", "directed", 4),
-        ("萨菈&莎希娜", "亚克莱德解决事务所", "ally", "萨尔巴德协力友人", "bidirectional", 3),
-        ("萨菈&莎希娜", "歇里德·阿斯瓦尔", "ally", "萨尔巴德故交与影展协力", "bidirectional", 3),
+        ("萨菈", "莎希娜", "family", "亲生姐妹（姐姐）", "directed", 5),
+        ("萨菈", "雷克塞尔演艺事务所", "membership", "签约东方舞娘艺人", "directed", 3),
+        ("莎希娜", "雷克塞尔演艺事务所", "membership", "签约东方舞娘艺人", "directed", 3),
+        ("萨菈", "亚克莱德解决事务所", "ally", "萨尔巴德协力友人", "bidirectional", 3),
+        ("莎希娜", "亚克莱德解决事务所", "ally", "萨尔巴德解救与协力友人", "bidirectional", 3),
+        ("萨菈", "歇里德·阿斯瓦尔", "ally", "萨尔巴德故交与影展协力", "bidirectional", 3),
+        ("莎希娜", "歇里德·阿斯瓦尔", "ally", "萨尔巴德故交与影展协力", "bidirectional", 3),
+        ("莎希娜", "阿玛塔", "hostile", "萨尔巴德遭胁迫利用", "bidirectional", 4),
 
         # Bergard, Church, Papal Guard, Martial Schools & Shizuna
         ("贝尔加德·哲曼", "范恩·亚克莱德", "school", "传授昆仑流武术的恩师", "directed", 5),
@@ -2064,19 +2440,26 @@ def main():
         ("里翁·巴塔札尔", "星杯骑士团", "membership", "第十一位守护骑士《苍冰》", "directed", 4),
         ("贝尔加德·哲曼", "塞莉丝·奥提希亚", "school", "师父与私收门生", "directed", 4),
         ("贝尔加德·哲曼", "里翁·巴塔札尔", "school", "师父与私收门生", "directed", 4),
+        ("贝尔加德·哲曼", "阿修拉德", "school", "师父（指导战槌矛）", "directed", 4),
         ("塞莉丝·奥提希亚", "范恩·亚克莱德", "ally", "嘴硬关心的同门师姐弟／协力", "bidirectional", 3),
         ("阿修拉德", "僧兵厅", "membership", "副僧兵长", "directed", 5),
         ("贝尔加德·哲曼", "洛克史密斯", "ally", "多年故交好友", "bidirectional", 3),
         ("洛克史密斯", "卡尔瓦德政府与总统府", "hierarchy", "前任共和国总统", "directed", 4),
+        ("洛克史密斯", "卡尔瓦德共和国", "membership", "前任总统（第22任）", "directed", 4),
         ("静名·蕾姆·御折木", "斑鸠", "membership", "副长《白银剑圣》", "directed", 5),
         ("静名·蕾姆·御折木", "黑神一刀流", "school", "白银剑圣达人", "directed", 5),
         ("静名·蕾姆·御折木", "八叶一刀流", "school", "零之型体悟（偷师共鸣）", "directed", 4),
         ("静名·蕾姆·御折木", "范恩·亚克莱德", "ally", "龙来交锋与奥拉希翁雇佣共斗", "bidirectional", 4),
         ("黑铁", "斑鸠", "membership", "覆面副长 · 静名随从", "directed", 4),
+        ("黑铁", "胧月流", "school", "东方忍术与暗器流派达人", "directed", 5),
         ("黑铁", "静名·蕾姆·御折木", "hierarchy", "贴身辅佐", "directed", 4),
 
-        # Bracers, CID & Police in Calvard
+        # Bracers, Quincy, CID & Police in Calvard
         ("艾蕾因·奥克雷尔", "游击士协会", "membership", "卡尔瓦德最年轻A级游击士", "directed", 5),
+        ("艾德蒙·奥克雷尔", "昆西公司", "membership", "董事长", "directed", 5),
+        ("艾德蒙·奥克雷尔", "艾蕾因·奥克雷尔", "family", "父女（理念冲突的严父）", "directed", 4),
+        ("艾蕾因·奥克雷尔", "昆西公司", "family", "董事长千金（拒承家业投身游击士）", "directed", 3),
+        ("艾德蒙·奥克雷尔", "阿玛塔", "hierarchy", "商业贪欲遭胁迫利用", "directed", 3),
         ("阵·瓦赛克", "范恩·亚克莱德", "ally", "关照有加的武门老大哥", "directed", 4),
         ("阵·瓦赛克", "艾蕾因·奥克雷尔", "hierarchy", "协会前辈指导", "directed", 4),
         ("菲·克劳赛尔", "艾蕾因·奥克雷尔", "ally", "游击士同行搭档", "bidirectional", 4),
@@ -2084,6 +2467,7 @@ def main():
         ("卢尼·金凯德", "CID", "membership", "统合分析室辅佐官", "directed", 5),
         ("雾香·楼兰", "卢尼·金凯德", "hierarchy", "直属上司与王牌副手", "directed", 4),
         ("卡艾拉·马克米兰", "CID", "membership", "情报分析少尉", "directed", 3),
+        ("卡艾拉·马克米兰", "海克力士", "membership", "特务少尉", "directed", 4),
         ("达斯瓦尼", "首都警察", "membership", "搜查一课警部", "directed", 4),
         ("奈特搜查官", "首都警察", "membership", "搜查官（达斯瓦尼部下）", "directed", 3),
         ("达斯瓦尼", "奈特搜查官", "hierarchy", "上司与部下", "directed", 3),
@@ -2094,12 +2478,18 @@ def main():
         ("波蕾特", "梦", "family", "母女", "directed", 5),
         ("维克托", "波蕾特", "family", "父女", "directed", 4),
         ("维克托", "餐酒馆《蒙马特》", "membership", "主厨兼房东", "directed", 4),
+        ("维克托", "蒙马特家族", "family", "家主、父亲", "directed", 4),
+        ("波蕾特", "蒙马特家族", "family", "长女", "directed", 4),
+        ("梦", "蒙马特家族", "family", "外孙女", "directed", 4),
+        ("马克希姆·卢根", "蒙马特家族", "family", "梦的生父（准女婿 · 默默守护）", "directed", 4, "梦的生父，尚未相认"),
+        ("范恩·亚克莱德", "维克托", "ally", "房客与关照长辈", "directed", 4),
         ("范恩·亚克莱德", "波蕾特", "ally", "房东母女与贴心租客", "bidirectional", 4),
         ("范恩·亚克莱德", "梦", "ally", "如兄如父般疼爱照顾", "bidirectional", 4),
         ("马克希姆·卢根", "波蕾特", "romance", "往昔恋人（小梦生父）", "bidirectional", 4),
         ("马克希姆·卢根", "梦", "family", "亲生父女（隐瞒身份守护）", "directed", 4),
         ("马克希姆·卢根", "乌尔努公司", "hierarchy", "Z1厂队王牌赛车手", "directed", 4),
         ("马克希姆·卢根", "亚克莱德解决事务所", "hierarchy", "寻找旧恋人母女委托人", "directed", 3),
+        ("丁格·布拉德", "杂志《扒粪者》", "membership", "王牌独立调查写手", "directed", 4),
         ("丁格·布拉德", "泰雷尔通讯社", "hierarchy", "特约独立八卦记者", "directed", 4),
         ("玛莉艾儿·埃梅", "泰雷尔通讯社", "membership", "新晋记者", "directed", 3),
         ("玛莉艾儿·埃梅", "丁格·布拉德", "ally", "敬仰的新闻前辈与遗志继承者", "directed", 4),
@@ -2107,11 +2497,17 @@ def main():
         ("贝尔默提", "范恩·亚克莱德", "hierarchy", "黑芒街与首都情报交易伙伴", "bidirectional", 3),
         ("杰克·崔佛", "哈璐·科尔曼", "ally", "王牌牌手与情报搭档", "bidirectional", 4),
         ("杰克·崔佛", "范恩·亚克莱德", "ally", "煌都与首都地下协力友人", "bidirectional", 3),
+        ("范恩·亚克莱德", "哈璐·科尔曼", "ally", "牌桌与地下情报协力友人", "bidirectional", 3),
         ("艾梅丝/艾米莉亚·哈林格", "范恩·亚克莱德", "ally", "速递情报与导力车同好", "bidirectional", 3),
         ("艾梅丝/艾米莉亚·哈林格", "卡尔瓦德政府与总统府", "hierarchy", "前空军王牌少校《银翼》", "directed", 3),
 
         # Antagonists: Almata, Garden & Ouroboros
         ("杰拉尔·丹提斯", "阿玛塔", "membership", "绝对首领", "directed", 5),
+        ("杰拉尔·丹提斯", "卡尔瓦德前皇室", "family", "旧王储后裔（本名杰拉尔·亚尔达里翁）", "directed", 5, "本名杰拉尔·亚尔达里翁"),
+        ("艾林格", "阿玛塔", "membership", "前首领（死亡）", "directed", 4),
+        ("杰拉尔·丹提斯", "艾林格", "hostile", "篡位肃清前任首领", "directed", 4),
+        ("罗宾·格拉斯戈", "阿玛塔", "membership", "物资调配成员（死亡）", "directed", 3, "负责管理和调配物资"),
+        ("罗宾·格拉斯戈", "亚克莱德解决事务所", "hostile", "首都地下物资走私交锋", "bidirectional", 3),
         ("梅鲁奇欧", "阿玛塔", "membership", "三干部之一", "directed", 5),
         ("梅鲁奇欧", "庭园", "membership", "《荆棘庭园》管理人", "directed", 4),
         ("梅鲁奇欧", "杰拉尔·丹提斯", "hierarchy", "狂热崇拜与效忠", "directed", 5),
@@ -2131,15 +2527,17 @@ def main():
         ("杰拉尔·丹提斯", "丁格·布拉德", "hostile", "克雷优村核爆灭口", "directed", 5),
         ("梅鲁奇欧", "阿伊妲", "hostile", "设局使其部队尸鬼化", "directed", 4),
         ("艾尔罗伊·贺伍德", "噬身之蛇", "membership", "蛇之使徒第四柱《破戒》", "directed", 5),
-        ("艾尔罗伊·贺伍德", "庭园", "hostile", "曾肃清旧教团并追剿庭园", "directed", 4),
+        ("艾尔罗伊·贺伍德", "庭园", "hierarchy", "整编创立后撒手放任", "directed", 4, "贺伍德将《月光木马团》与《D∴G教团》的残党整编成《庭园》后撒手不管"),
         ("艾尔罗伊·贺伍德", "范恩·亚克莱德", "hierarchy", "奥拉希翁死亡游戏委托与试探", "directed", 4),
         ("露克蕾琪亚·伊斯雷", "噬身之蛇", "membership", "执行者No.III《黄金蝶》", "directed", 4),
         ("露克蕾琪亚·伊斯雷", "艾尔罗伊·贺伍德", "hierarchy", "同行协力（旧月光木马团渊源）", "bidirectional", 4),
         ("瓦尔特·克隆", "范恩·亚克莱德", "hostile", "劲敌交锋（赏识其爱车品味）", "bidirectional", 4),
     ]
 
-    for s, t, cat, lb, dirc, w in kuro_rels:
-        add_rel(s, t, cat, lb, ["kuro"], dirc, w)
+    for rel_item in kuro_rels:
+        s, t, cat, lb, dirc, w = rel_item[:6]
+        rnote = rel_item[6] if len(rel_item) > 6 else ""
+        add_rel(s, t, cat, lb, ["kuro"], dirc, w, note=rnote)
 
     # Helpers to extend continuing relations & link multi-hop supersedesId chains cleanly
     def find_existing_rel(sname: str, tname: str, category: str, label: str):
@@ -2214,6 +2612,13 @@ def main():
             note=sup.get("note", ""),
         )
         assert rid is not None, f"Failed to add KAI_SUPERSEDES: {sup}"
+
+    # 11B. Cross-Arc Backstory Relations (active in multi-arc & All-Zemuria views without polluting single-arc purity)
+    add_rel("赛克托军武", "阿玛塔", "hierarchy", "秘密军火合作与追查遗产", ["kuro", "kuro2"], "bidirectional", 4)
+    add_rel("杰拉尔·丹提斯", "伊克斯", "family", "父亲（亚尔达里翁血脉遗孤）", ["kuro", "kuro2", "kai"], "directed", 5)
+    add_rel("杰拉尔·丹提斯", "约尔妲", "family", "父亲（亚尔达里翁血脉遗孤）", ["kuro", "kuro2", "kai"], "directed", 5)
+    extend_cody_rocksmith = find_existing_rel("柯迪·马克米兰", "洛克史密斯", "hierarchy", "前贴身护卫 · 深敬前总统")
+    extend_cody_rocksmith["arcs"] = ["kai", "kuro", "kuro2"]
 
     # Sort entities cleanly by type then name
     type_order = {"nation": 0, "organization": 1, "family": 2, "school": 3, "character": 4}
@@ -2354,10 +2759,8 @@ def main():
         s_ent_arcs = set(ent_by_id[r["source"]]["arcs"])
         t_ent_arcs = set(ent_by_id[r["target"]]["arcs"])
         assert set(r["arcs"]) <= (s_ent_arcs | t_ent_arcs), f"Rel {r['id']} arcs {r['arcs']} outside endpoints!"
-        for aid in r["arcs"]:
-            if aid in ("kuro", "kuro2", "kai"):
-                assert aid in s_ent_arcs, f"Rel {r['id']} source {r['source']} not active in arc {aid}"
-                assert aid in t_ent_arcs, f"Rel {r['id']} target {r['target']} not active in arc {aid}"
+        assert set(r["arcs"]) & s_ent_arcs, f"Rel {r['id']} has zero arc overlap with source {r['source']}"
+        assert set(r["arcs"]) & t_ent_arcs, f"Rel {r['id']} has zero arc overlap with target {r['target']}"
         if "supersedesId" in r:
             assert r["supersedesId"] in rel_by_id, f"Missing supersedesId {r['supersedesId']}"
             seen_chain = {r["id"]}

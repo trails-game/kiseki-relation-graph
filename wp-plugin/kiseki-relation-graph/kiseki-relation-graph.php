@@ -3,7 +3,7 @@
  * Plugin Name:       Kiseki Interactive Relationship Graph (轨迹系列导力关系图谱)
  * Plugin URI:        https://trails-game.com/relations
  * Description:       Interactive 3D/2D multi-arc relationship graph for Trails / Kiseki (Characters, Organizations, Families, Martial Schools & Nations) powered by zero-SQL static JSON snapshots and a Visual Admin Studio accessible to Editors and Administrators.
- * Version:           1.0.2
+ * Version:           1.0.3
  * Requires at least: 6.2
  * Requires PHP:      8.1
  * Author:            trails-game
@@ -15,7 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'KISEKI_RELATION_VERSION', '1.0.2' );
+define( 'KISEKI_RELATION_VERSION', '1.0.3' );
 define( 'KISEKI_RELATION_CAP', 'manage_kiseki_relations' );
 define( 'KISEKI_RELATION_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'KISEKI_RELATION_PLUGIN_URL', plugin_dir_url( __FILE__ ) );

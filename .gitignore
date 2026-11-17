@@ -11,6 +11,7 @@ public/
 wp-plugin/kiseki-relation-graph/assets/
 wp-plugin/kiseki-relation-graph/seed/
 *.zip
+*.xlsx
 SHA256SUMS.txt
 
 # Environment & OS files

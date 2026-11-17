@@ -8,7 +8,7 @@ Interactive **3D WebGL & 2D Tactical** multi-arc relationship graph for the *Tra
 
 ## Highlights
 
-- **Complete 6-Arc Zemuria Dataset**: Covers *Trails in the Sky* (`sora`), *Zero / Azure* (`zero_ao`), *Cold Steel / Reverie* (`sen`), *Daybreak* (`kuro`), *Daybreak II* (`kuro2`), and *Beyond the Horizon* (`kai`) — **429 entities** and **1,093 relationships** with `Shift+Click` multi-arc comparison and transitive `supersedesId` relationship evolution.
+- **Complete 6-Arc Zemuria Dataset**: Covers *Trails in the Sky* (`sora`), *Zero / Azure* (`zero_ao`), *Cold Steel / Reverie* (`sen`), *Daybreak* (`kuro`), *Daybreak II* (`kuro2`), and *Beyond the Horizon* (`kai`) — **449 entities** and **1,186 relationships** with `Shift+Click` multi-arc comparison and transitive `supersedesId` relationship evolution.
 - **Dual Rendering Engines**:
   - **3D Constellation (`3D 星盘`)**: `3d-force-graph` + Three.js composite portrait/nameplate sprites, regional sector clustering, directional particles, and retina edge-label pills.
   - **2D Tactical Map (`2D 战术图`)**: `d3-force` + convex faction hulls, 3-tier semantic zoom (LOD), collapsible organizations, and 1-hop/2-hop Ego Ring focus.
@@ -51,7 +51,7 @@ docker compose up -d
 ## CI & Releases
 
 - **Pull Requests & `main` (`ci.yml`)**: Runs TypeScript typechecking, PHP syntax linting (`php -l`), 189-subgraph dataset topology validation, and full web + WordPress plugin builds.
-- **Releases (`release.yml`)**: Pushing a `v*` tag (e.g. `v1.0.2`) automatically builds and attaches `kiseki-relation-graph.zip`, `kiseki-relation-web-dist.zip`, and `SHA256SUMS.txt` to the GitHub Release.
+- **Releases (`release.yml`)**: Pushing a `v*` tag (e.g. `v1.0.3`) automatically builds and attaches `kiseki-relation-graph.zip`, `kiseki-relation-web-dist.zip`, and `SHA256SUMS.txt` to the GitHub Release.
 
 ## License
 

@@ -2,6 +2,10 @@
 
 Interactive **3D WebGL & 2D Tactical** multi-arc relationship graph for the *Trails / Kiseki* (*轨迹*) series, packaged both as a **zero-SQL static-JSON WordPress plugin** and a standalone Vite/React web viewer.
 
+**Live Online Demo**: [https://trails-game.com/relations/](https://trails-game.com/relations/)
+
+[![Kiseki Interactive Relationship Graph Preview](docs/preview.png)](https://trails-game.com/relations/)
+
 ## Highlights
 
 - **Complete 6-Arc Zemuria Dataset**: Covers *Trails in the Sky* (`sora`), *Zero / Azure* (`zero_ao`), *Cold Steel / Reverie* (`sen`), *Daybreak* (`kuro`), *Daybreak II* (`kuro2`), and *Beyond the Horizon* (`kai`) — **429 entities** and **1,093 relationships** with `Shift+Click` multi-arc comparison and transitive `supersedesId` relationship evolution.

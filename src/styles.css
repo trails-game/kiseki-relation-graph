@@ -1,0 +1,1672 @@
+.xipha-app-shell {
+  --bg-deep: #060913;
+  --panel-bg: rgba(11, 18, 36, 0.84);
+  --panel-border: rgba(56, 189, 248, 0.22);
+  --panel-border-strong: rgba(56, 189, 248, 0.52);
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --accent-cyan: #38bdf8;
+  --accent-gold: #fbbf24;
+  --font-sans: "Noto Sans SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 100%;
+  height: 82vh;
+  min-height: 400px;
+  position: relative;
+  overflow: hidden;
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  line-height: 1.35;
+  letter-spacing: normal;
+  text-align: left;
+  box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+}
+
+.xipha-app-shell.is-web-fullscreen {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  border: none !important;
+  z-index: 2147483000 !important;
+}
+
+html.kr-web-fullscreen-active,
+body.kr-web-fullscreen-active {
+  overflow: hidden !important;
+  scrollbar-gutter: auto !important;
+}
+
+html.kr-web-fullscreen-active {
+  margin-top: 0 !important;
+}
+
+body.kr-web-fullscreen-active #wpadminbar {
+  display: none !important;
+}
+
+.xipha-app-shell *,
+.xipha-app-shell *::before,
+.xipha-app-shell *::after {
+  box-sizing: border-box;
+}
+
+/* ================= THEME ISOLATION BASE RESETS ================= */
+.xipha-app-shell button,
+.xipha-app-shell input,
+.xipha-app-shell select,
+.xipha-app-shell textarea {
+  font-family: var(--font-sans);
+  line-height: 1.3;
+}
+
+.xipha-app-shell button {
+  margin: 0 !important;
+  min-height: 0 !important;
+  box-shadow: none;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  text-decoration: none;
+}
+
+.xipha-app-shell h1,
+.xipha-app-shell h2,
+.xipha-app-shell h3,
+.xipha-app-shell h4 {
+  color: #f1f5f9 !important;
+  font-family: var(--font-sans) !important;
+  font-weight: 700 !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.xipha-app-shell p {
+  font-family: var(--font-sans);
+  color: #cbd5e1;
+  margin: 0;
+}
+
+.xipha-app-shell svg {
+  flex-shrink: 0;
+}
+
+/* Sleek dark thin scrollbars on floating HUD panels */
+.xipha-app-shell .left-control-dock,
+.xipha-app-shell .inspector-drawer,
+.xipha-app-shell .quick-edit-modal {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(56, 189, 248, 0.32) rgba(8, 13, 27, 0.45);
+}
+
+.xipha-app-shell .left-control-dock::-webkit-scrollbar,
+.xipha-app-shell .inspector-drawer::-webkit-scrollbar,
+.xipha-app-shell .quick-edit-modal::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.xipha-app-shell .left-control-dock::-webkit-scrollbar-track,
+.xipha-app-shell .inspector-drawer::-webkit-scrollbar-track,
+.xipha-app-shell .quick-edit-modal::-webkit-scrollbar-track {
+  background: rgba(8, 13, 27, 0.45);
+  border-radius: 999px;
+}
+
+.xipha-app-shell .left-control-dock::-webkit-scrollbar-thumb,
+.xipha-app-shell .inspector-drawer::-webkit-scrollbar-thumb,
+.xipha-app-shell .quick-edit-modal::-webkit-scrollbar-thumb {
+  background: rgba(56, 189, 248, 0.32);
+  border-radius: 999px;
+}
+
+.xipha-app-shell .left-control-dock::-webkit-scrollbar-thumb:hover,
+.xipha-app-shell .inspector-drawer::-webkit-scrollbar-thumb:hover,
+.xipha-app-shell .quick-edit-modal::-webkit-scrollbar-thumb:hover {
+  background: rgba(56, 189, 248, 0.55);
+}
+
+.xipha-app-shell .kr-loading-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(6, 9, 19, 0.85);
+  color: #38bdf8;
+  font-size: 14px;
+  font-weight: 600;
+  z-index: 40;
+}
+
+.xipha-app-shell .kr-loading-overlay.error {
+  color: #f87171;
+}
+
+.xipha-app-shell .kr-loading-overlay.kr-empty-state {
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+/* ================= TOP ARC & VIEW BAR ================= */
+.xipha-app-shell .top-arc-bar {
+  min-height: 54px;
+  min-width: 0;
+  max-width: 100%;
+  margin: 0 !important;
+  padding: 6px 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 8px;
+  background: rgba(8, 13, 27, 0.92);
+  border: none;
+  border-bottom: 1px solid var(--panel-border);
+  backdrop-filter: blur(16px);
+  z-index: 30;
+  overflow-x: hidden;
+}
+
+.xipha-app-shell .top-arc-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.xipha-app-shell .brand-cluster {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  min-width: 0;
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+.xipha-app-shell .xipha-core-badge {
+  padding: 5px 9px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: 0.14em;
+  color: #060913;
+  background: linear-gradient(135deg, #38bdf8, #818cf8);
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.45);
+}
+
+.xipha-app-shell .brand-title {
+  font-size: 14.5px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: 0.02em;
+  color: #f1f5f9;
+}
+
+.xipha-app-shell .brand-stats {
+  font-size: 11.5px;
+  line-height: 1.25;
+  color: var(--text-secondary);
+  display: flex;
+  gap: 6px;
+}
+
+.xipha-app-shell .arc-layer-switcher {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+  gap: 3px;
+  padding: 3px 6px;
+  margin: 0;
+  background: rgba(15, 23, 42, 0.78);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 999px;
+}
+
+.xipha-app-shell .switcher-caption {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  padding: 0 6px 0 4px;
+  white-space: nowrap;
+}
+
+.xipha-app-shell .arc-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px !important;
+  border-radius: 999px !important;
+  border: 1px solid transparent !important;
+  background: transparent !important;
+  color: #cbd5e1 !important;
+  font-family: var(--font-sans) !important;
+  font-size: 11.5px !important;
+  font-weight: 600 !important;
+  line-height: 1.3 !important;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: none !important;
+  transition: all 0.16s ease;
+}
+
+.xipha-app-shell .arc-pill:hover {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: #ffffff !important;
+}
+
+.xipha-app-shell .arc-pill.active {
+  background: rgba(56, 189, 248, 0.16) !important;
+  border-color: var(--arc-accent, var(--accent-cyan)) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.22) !important;
+}
+
+.xipha-app-shell .arc-pill.all-series.active {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.22), rgba(251, 191, 36, 0.22)) !important;
+  border-color: var(--accent-gold) !important;
+}
+
+.xipha-app-shell .arc-pill-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.xipha-app-shell .view-action-cluster {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+  gap: 6px;
+}
+
+.xipha-app-shell .segmented-toggle {
+  display: inline-flex;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 8px;
+  padding: 2px;
+}
+
+.xipha-app-shell .segmented-toggle button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 8px !important;
+  border: none !important;
+  border-radius: 6px !important;
+  background: transparent !important;
+  color: var(--text-secondary) !important;
+  font-family: var(--font-sans) !important;
+  font-size: 11.5px !important;
+  font-weight: 600 !important;
+  line-height: 1.3 !important;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: none !important;
+  transition: all 0.15s ease;
+}
+
+.xipha-app-shell .segmented-toggle button:hover {
+  color: #e2e8f0 !important;
+}
+
+.xipha-app-shell .segmented-toggle button.active {
+  background: rgba(56, 189, 248, 0.22) !important;
+  color: #f8fafc !important;
+}
+
+.xipha-app-shell .hud-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 5px 9px !important;
+  margin: 0 !important;
+  min-height: 0 !important;
+  border-radius: 8px !important;
+  border: 1px solid rgba(148, 163, 184, 0.24) !important;
+  background: rgba(15, 23, 42, 0.82) !important;
+  color: #e2e8f0 !important;
+  font-family: var(--font-sans) !important;
+  font-size: 11.5px !important;
+  font-weight: 600 !important;
+  line-height: 1.3 !important;
+  white-space: nowrap;
+  cursor: pointer;
+  text-decoration: none !important;
+  box-shadow: none !important;
+  transition: all 0.15s ease;
+}
+
+.xipha-app-shell .hud-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.xipha-app-shell .hud-btn.active {
+  background: rgba(56, 189, 248, 0.2) !important;
+  border-color: var(--accent-cyan) !important;
+  color: #ffffff !important;
+}
+
+.xipha-app-shell .hud-btn.accent-btn {
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.28), rgba(99, 102, 241, 0.28)) !important;
+  border-color: rgba(56, 189, 248, 0.55) !important;
+  color: #f8fafc !important;
+}
+
+.xipha-app-shell .hud-btn.primary-mini {
+  background: rgba(56, 189, 248, 0.2) !important;
+  border-color: rgba(56, 189, 248, 0.5) !important;
+  color: #f8fafc !important;
+}
+
+.xipha-app-shell .hud-btn:hover:not(:disabled) {
+  border-color: var(--accent-cyan) !important;
+  color: #ffffff !important;
+}
+
+.xipha-app-shell a.hud-btn,
+.xipha-app-shell a.hud-btn:link,
+.xipha-app-shell a.hud-btn:visited,
+.xipha-app-shell a.hud-btn:hover,
+.xipha-app-shell a.hud-btn:active,
+.xipha-app-shell a.hud-btn:focus,
+.xipha-app-shell a.wiki-link-btn,
+.xipha-app-shell a.wiki-link-btn:link,
+.xipha-app-shell a.wiki-link-btn:visited,
+.xipha-app-shell a.wiki-link-btn:hover,
+.xipha-app-shell a.wiki-link-btn:active,
+.xipha-app-shell a.wiki-link-btn:focus {
+  color: #f8fafc !important;
+  text-decoration: none !important;
+}
+
+.xipha-app-shell a.hud-btn:hover,
+.xipha-app-shell a.wiki-link-btn:hover {
+  border-color: var(--accent-cyan) !important;
+  color: #f8fafc !important;
+  text-decoration: none !important;
+}
+
+.xipha-app-shell .full-width {
+  width: 100% !important;
+}
+
+/* ================= MAIN GRAPH STAGE ================= */
+.xipha-app-shell .xipha-stage {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  position: relative;
+  overflow: hidden;
+}
+
+.xipha-app-shell .graph-canvas-host {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.xipha-app-shell .graph-2d-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+}
+
+/* ================= LEFT CONTROL DOCK ================= */
+.xipha-app-shell .left-dock-launcher {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  min-height: 36px !important;
+  padding: 6px 12px !important;
+  border-radius: 999px !important;
+  border: 1px solid var(--panel-border-strong) !important;
+  background: rgba(11, 18, 36, 0.9) !important;
+  color: #f1f5f9 !important;
+  font-family: var(--font-sans) !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  line-height: 1.3 !important;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  backdrop-filter: blur(14px);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45) !important;
+  cursor: pointer;
+  z-index: 21;
+  transition: all 0.16s ease;
+}
+
+.xipha-app-shell .left-dock-launcher:hover {
+  border-color: var(--accent-cyan) !important;
+  background: rgba(14, 24, 48, 0.96) !important;
+  color: #ffffff !important;
+}
+
+.xipha-app-shell .left-dock-launcher.has-active-filters {
+  border-color: var(--accent-gold) !important;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45), 0 0 14px rgba(251, 191, 36, 0.24) !important;
+}
+
+.xipha-app-shell .launcher-icon {
+  color: var(--accent-cyan);
+  flex-shrink: 0;
+}
+
+.xipha-app-shell .launcher-icon-sub {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.xipha-app-shell .launcher-filter-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(251, 191, 36, 0.2);
+  border: 1px solid rgba(251, 191, 36, 0.55);
+  color: var(--accent-gold);
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.xipha-app-shell .launcher-filter-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-gold);
+  box-shadow: 0 0 6px var(--accent-gold);
+}
+
+.xipha-app-shell .left-control-dock {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  width: 300px;
+  max-height: calc(100% - 64px);
+  margin: 0 !important;
+  float: none !important;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  padding: 12px;
+  backdrop-filter: blur(16px);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+  z-index: 20;
+}
+
+.xipha-app-shell .dock-top-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+}
+
+.xipha-app-shell .dock-top-row .search-box-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
+.xipha-app-shell .dock-minimize-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 34px !important;
+  min-height: 34px !important;
+  max-height: 34px !important;
+  margin: 0 !important;
+  padding: 0 10px !important;
+  border-radius: 8px !important;
+  border: 1px solid rgba(148, 163, 184, 0.25) !important;
+  background: rgba(15, 23, 42, 0.85) !important;
+  color: #cbd5e1 !important;
+  font-family: var(--font-sans) !important;
+  font-size: 11.5px !important;
+  font-weight: 600 !important;
+  line-height: 1 !important;
+  white-space: nowrap;
+  flex-shrink: 0;
+  cursor: pointer;
+  box-shadow: none !important;
+  transition: all 0.15s ease;
+}
+
+.xipha-app-shell .dock-minimize-btn:hover {
+  border-color: var(--accent-cyan) !important;
+  background: rgba(56, 189, 248, 0.16) !important;
+  color: #ffffff !important;
+}
+
+.xipha-app-shell .search-box-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 34px;
+  margin: 0 !important;
+  padding: 0 !important;
+  display: flex;
+  align-items: center;
+}
+
+.xipha-app-shell .search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  z-index: 2;
+  color: #94a3b8;
+  margin: 0 !important;
+}
+
+.xipha-app-shell input.search-input,
+.xipha-app-shell input[type="text"].search-input,
+.xipha-app-shell input[type="search"].search-input {
+  width: 100% !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  max-height: 34px !important;
+  margin: 0 !important;
+  padding: 6px 30px 6px 32px !important;
+  border-radius: 8px !important;
+  border: 1px solid rgba(148, 163, 184, 0.25) !important;
+  background: rgba(6, 10, 22, 0.88) !important;
+  background-color: rgba(6, 10, 22, 0.88) !important;
+  background-image: none !important;
+  color: #f8fafc !important;
+  font-family: var(--font-sans) !important;
+  font-size: 12.5px !important;
+  line-height: 1.3 !important;
+  box-shadow: none !important;
+  outline: none !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+}
+
+.xipha-app-shell input.search-input::placeholder,
+.xipha-app-shell input[type="text"].search-input::placeholder,
+.xipha-app-shell input[type="search"].search-input::placeholder {
+  color: #94a3b8 !important;
+  opacity: 1 !important;
+}
+
+.xipha-app-shell input.search-input:focus,
+.xipha-app-shell input[type="text"].search-input:focus,
+.xipha-app-shell input[type="search"].search-input:focus {
+  border-color: var(--accent-cyan) !important;
+  background-color: rgba(8, 13, 31, 0.95) !important;
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.16) !important;
+  outline: none !important;
+}
+
+.xipha-app-shell .clear-icon-btn {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: #94a3b8 !important;
+  cursor: pointer;
+  padding: 4px !important;
+  margin: 0 !important;
+  min-height: 0 !important;
+  min-width: 0 !important;
+  height: auto !important;
+  line-height: 1 !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+}
+
+.xipha-app-shell .clear-icon-btn:hover {
+  color: #ffffff !important;
+}
+
+.xipha-app-shell .search-box-wrap .clear-icon-btn,
+.xipha-app-shell .search-clear-btn {
+  position: absolute !important;
+  right: 5px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  z-index: 2;
+  margin: 0 !important;
+  padding: 4px !important;
+  min-height: 0 !important;
+  height: auto !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.xipha-app-shell .search-dropdown {
+  margin-top: 6px;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  border-radius: 8px;
+  background: rgba(8, 13, 27, 0.98);
+  overflow: hidden;
+}
+
+.xipha-app-shell .search-result-row {
+  width: 100%;
+  padding: 7px 10px !important;
+  border: none !important;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.1) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: #f1f5f9 !important;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: none !important;
+}
+
+.xipha-app-shell .search-result-row:last-child {
+  border-bottom: none !important;
+}
+
+.xipha-app-shell .search-result-row:hover {
+  background: rgba(56, 189, 248, 0.14) !important;
+}
+
+.xipha-app-shell .search-row-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.xipha-app-shell .search-row-name {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #f1f5f9;
+}
+
+.xipha-app-shell .search-row-sub {
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.xipha-app-shell .cross-layer-jump-tag {
+  font-size: 10.5px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(251, 191, 36, 0.18);
+  color: var(--accent-gold);
+  white-space: nowrap;
+}
+
+.xipha-app-shell .dock-header-toggle {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  color: #cbd5e1;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.xipha-app-shell .dock-section-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.xipha-app-shell .dock-body {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.xipha-app-shell .filter-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.xipha-app-shell .chip-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.xipha-app-shell .tier-segmented {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  padding: 3px;
+  border-radius: 8px;
+  background: rgba(6, 10, 22, 0.85);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.xipha-app-shell .tier-segmented button {
+  padding: 5px 4px !important;
+  border: none !important;
+  border-radius: 6px !important;
+  background: transparent !important;
+  color: var(--text-secondary) !important;
+  font-family: var(--font-sans) !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  line-height: 1.3 !important;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: none !important;
+  transition: all 0.15s ease;
+}
+
+.xipha-app-shell .tier-segmented button.active {
+  background: rgba(56, 189, 248, 0.22) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.18) !important;
+}
+
+.xipha-app-shell .filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px !important;
+  border-radius: 6px !important;
+  border: 1px solid rgba(148, 163, 184, 0.22) !important;
+  background: rgba(15, 23, 42, 0.72) !important;
+  color: #e2e8f0 !important;
+  font-family: var(--font-sans) !important;
+  font-size: 11.5px !important;
+  font-weight: 500 !important;
+  line-height: 1.3 !important;
+  cursor: pointer;
+  box-shadow: none !important;
+  transition: all 0.14s ease;
+}
+
+.xipha-app-shell .filter-chip:hover {
+  border-color: rgba(56, 189, 248, 0.45) !important;
+  color: #ffffff !important;
+}
+
+.xipha-app-shell .filter-chip.muted {
+  opacity: 0.36;
+}
+
+.xipha-app-shell .chip-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.xipha-app-shell .chip-line {
+  width: 12px;
+  border-top: 2px solid;
+  flex-shrink: 0;
+}
+
+.xipha-app-shell .chip-line.dashed {
+  border-top-style: dashed;
+}
+
+.xipha-app-shell .chip-count {
+  font-size: 10.5px;
+  color: var(--text-secondary);
+}
+
+.xipha-app-shell .pathfinder-box {
+  padding-top: 8px;
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.xipha-app-shell .path-select-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.xipha-app-shell select.hud-select {
+  width: 100% !important;
+  min-width: 0;
+  max-width: 100%;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+  height: 33px !important;
+  min-height: 33px !important;
+  max-height: 33px !important;
+  margin: 0 !important;
+  padding: 6px 28px 6px 10px !important;
+  border-radius: 6px !important;
+  border: 1px solid rgba(148, 163, 184, 0.25) !important;
+  background-color: rgba(6, 10, 22, 0.92) !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 9px center !important;
+  background-size: 12px 12px !important;
+  color: #f1f5f9 !important;
+  font-family: var(--font-sans) !important;
+  font-size: 12px !important;
+  line-height: 1.3 !important;
+  text-overflow: ellipsis;
+  box-shadow: none !important;
+  outline: none !important;
+  cursor: pointer;
+}
+
+.xipha-app-shell select.hud-select::-ms-expand {
+  display: none;
+}
+
+.xipha-app-shell select.hud-select:focus {
+  border-color: var(--accent-cyan) !important;
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.16) !important;
+  outline: none !important;
+}
+
+.xipha-app-shell select.hud-select option {
+  background-color: #0b1224;
+  color: #f1f5f9;
+}
+
+.xipha-app-shell input.hud-input,
+.xipha-app-shell input[type="text"].hud-input {
+  width: 100% !important;
+  min-width: 0;
+  max-width: 100%;
+  height: 34px !important;
+  min-height: 34px !important;
+  max-height: 34px !important;
+  margin: 0 !important;
+  padding: 6px 10px !important;
+  border-radius: 6px !important;
+  border: 1px solid rgba(148, 163, 184, 0.25) !important;
+  background: rgba(6, 10, 22, 0.92) !important;
+  background-color: rgba(6, 10, 22, 0.92) !important;
+  background-image: none !important;
+  color: #f1f5f9 !important;
+  font-family: var(--font-sans) !important;
+  font-size: 12px !important;
+  line-height: 1.3 !important;
+  text-overflow: ellipsis;
+  box-shadow: none !important;
+  outline: none !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+}
+
+.xipha-app-shell input.hud-input::placeholder,
+.xipha-app-shell input[type="text"].hud-input::placeholder {
+  color: #94a3b8 !important;
+  opacity: 1 !important;
+}
+
+.xipha-app-shell input.hud-input:focus,
+.xipha-app-shell input[type="text"].hud-input:focus {
+  border-color: var(--accent-cyan) !important;
+  background-color: rgba(8, 13, 31, 0.95) !important;
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.16) !important;
+  outline: none !important;
+}
+
+.xipha-app-shell .path-btn-row {
+  margin-top: 7px;
+  display: flex;
+  gap: 6px;
+}
+
+.xipha-app-shell .path-status-note {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--accent-gold);
+}
+
+/* ================= RIGHT INSPECTOR DRAWER ================= */
+.xipha-app-shell .inspector-drawer {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 345px;
+  max-height: calc(100% - 64px);
+  margin: 0 !important;
+  float: none !important;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  padding: 14px;
+  backdrop-filter: blur(18px);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
+  z-index: 20;
+}
+
+.xipha-app-shell .drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.xipha-app-shell .entity-type-pill {
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.3;
+  padding: 3px 9px;
+  border-radius: 999px;
+}
+
+.xipha-app-shell .node-hero-header {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.xipha-app-shell .hero-avatar-box {
+  width: 64px;
+  height: 64px;
+  border-radius: 14px;
+  border: 2px solid;
+  overflow: hidden;
+  background: #0f172a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.xipha-app-shell .hero-avatar-box img {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  object-fit: cover !important;
+  display: block !important;
+}
+
+.xipha-app-shell .hero-monogram {
+  font-size: 20px;
+  font-weight: 800;
+  color: #f1f5f9;
+}
+
+.xipha-app-shell .hero-titles {
+  min-width: 0;
+}
+
+.xipha-app-shell .hero-titles h2 {
+  margin: 0 !important;
+  font-size: 17px !important;
+  line-height: 1.25 !important;
+  color: #f1f5f9 !important;
+}
+
+.xipha-app-shell .hero-en {
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--text-secondary);
+}
+
+.xipha-app-shell .hero-role {
+  margin-top: 3px;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--accent-cyan);
+  font-weight: 600;
+}
+
+.xipha-app-shell .hero-org-chip {
+  margin-top: 3px;
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: #cbd5e1;
+}
+
+.xipha-app-shell .inline-jump-link {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  min-height: 0 !important;
+  color: var(--accent-gold) !important;
+  font-size: 11.5px !important;
+  font-weight: 600 !important;
+  cursor: pointer;
+  text-decoration: underline !important;
+  box-shadow: none !important;
+}
+
+.xipha-app-shell .inline-jump-link:hover {
+  color: #fde68a !important;
+}
+
+.xipha-app-shell .drawer-prose {
+  margin: 8px 0 12px !important;
+  padding: 0 !important;
+  font-size: 12.5px !important;
+  line-height: 1.62 !important;
+  color: #cbd5e1 !important;
+}
+
+.xipha-app-shell .drawer-prose strong {
+  color: #f8fafc !important;
+  font-weight: 700;
+}
+
+.xipha-app-shell .drawer-section {
+  margin-top: 12px;
+  padding-top: 11px;
+  border-top: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+.xipha-app-shell .section-heading {
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: #e2e8f0;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.xipha-app-shell .evolution-callout {
+  background: rgba(251, 191, 36, 0.06);
+  border: 1px solid rgba(251, 191, 36, 0.24);
+  border-radius: 9px;
+  padding: 10px;
+}
+
+.xipha-app-shell .evolution-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.xipha-app-shell .evo-step-card {
+  padding: 7px 9px;
+  border-radius: 7px;
+  background: rgba(8, 13, 27, 0.78);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.xipha-app-shell .evo-step-card:hover {
+  border-color: var(--accent-gold);
+}
+
+.xipha-app-shell .evo-step-top {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.xipha-app-shell .evo-jump-hint {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.xipha-app-shell .evo-step-name {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #f1f5f9;
+  margin-top: 2px;
+}
+
+.xipha-app-shell .evo-step-sub {
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--text-secondary);
+}
+
+.xipha-app-shell blockquote,
+.xipha-app-shell blockquote.script-quote-card,
+.xipha-app-shell .script-quote-card {
+  margin: 0 0 8px 0 !important;
+  padding: 8px 10px !important;
+  border: none !important;
+  border-left: 3px solid var(--accent-cyan) !important;
+  background: rgba(15, 23, 42, 0.78) !important;
+  background-color: rgba(15, 23, 42, 0.78) !important;
+  background-image: none !important;
+  border-radius: 0 7px 7px 0 !important;
+  font-style: normal !important;
+  font-weight: 400 !important;
+  quotes: none !important;
+  color: #f1f5f9 !important;
+  box-shadow: none !important;
+}
+
+.xipha-app-shell blockquote::before,
+.xipha-app-shell blockquote::after,
+.xipha-app-shell blockquote.script-quote-card::before,
+.xipha-app-shell blockquote.script-quote-card::after {
+  content: none !important;
+  display: none !important;
+}
+
+.xipha-app-shell .quote-meta {
+  font-size: 10.5px !important;
+  line-height: 1.4 !important;
+  font-style: normal !important;
+  color: #94a3b8 !important;
+  margin: 0 0 3px 0 !important;
+}
+
+.xipha-app-shell .quote-text {
+  font-size: 12px !important;
+  line-height: 1.5 !important;
+  font-style: normal !important;
+  color: #f1f5f9 !important;
+  margin: 0 !important;
+}
+
+.xipha-app-shell .relation-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.xipha-app-shell .relation-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.xipha-app-shell .relation-target-btn {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px !important;
+  border-radius: 6px !important;
+  border: 1px solid rgba(148, 163, 184, 0.14) !important;
+  background: rgba(15, 23, 42, 0.65) !important;
+  color: #f1f5f9 !important;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font-sans) !important;
+  font-size: 12px !important;
+  line-height: 1.3 !important;
+  box-shadow: none !important;
+}
+
+.xipha-app-shell .relation-target-btn:hover {
+  border-color: var(--accent-cyan) !important;
+  background: rgba(15, 23, 42, 0.85) !important;
+}
+
+.xipha-app-shell .type-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.xipha-app-shell .rel-other-name {
+  font-weight: 600;
+  color: #f1f5f9;
+  white-space: nowrap;
+}
+
+.xipha-app-shell .rel-arrow-ico {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.xipha-app-shell .rel-badge-txt {
+  font-size: 11.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.xipha-app-shell .mini-evolve-btn {
+  padding: 5px 7px !important;
+  border-radius: 6px !important;
+  border: 1px solid rgba(251, 191, 36, 0.3) !important;
+  background: rgba(251, 191, 36, 0.1) !important;
+  color: var(--accent-gold) !important;
+  font-family: var(--font-sans) !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  line-height: 1.3 !important;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: none !important;
+}
+
+.xipha-app-shell .mini-evolve-btn:hover {
+  background: rgba(251, 191, 36, 0.22) !important;
+}
+
+.xipha-app-shell .edge-hero-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px;
+  border-radius: 9px;
+  background: rgba(15, 23, 42, 0.75);
+}
+
+.xipha-app-shell .edge-endpoint {
+  background: rgba(56, 189, 248, 0.12) !important;
+  border: 1px solid rgba(56, 189, 248, 0.3) !important;
+  color: #ffffff !important;
+  padding: 5px 12px !important;
+  border-radius: 6px !important;
+  font-family: var(--font-sans) !important;
+  font-size: 12.5px !important;
+  font-weight: 700 !important;
+  line-height: 1.3 !important;
+  cursor: pointer;
+  box-shadow: none !important;
+}
+
+.xipha-app-shell .edge-endpoint:hover {
+  border-color: var(--accent-cyan) !important;
+  background: rgba(56, 189, 248, 0.22) !important;
+}
+
+.xipha-app-shell .edge-arrow-badge {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.xipha-app-shell .arc-badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.xipha-app-shell .mini-arc-tag {
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid;
+  font-size: 11.5px;
+  color: #e2e8f0;
+}
+
+.xipha-app-shell .drawer-footer-actions {
+  margin-top: 14px;
+}
+
+/* ================= BOTTOM HUD & LOD BADGES ================= */
+.xipha-app-shell .bottom-hint-pill {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(8, 13, 27, 0.85);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  color: #cbd5e1;
+  font-size: 11.5px;
+  line-height: 1.3;
+  display: flex;
+  gap: 8px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 15;
+}
+
+.xipha-app-shell .lod-hud-badge {
+  position: absolute;
+  bottom: 46px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: rgba(11, 18, 36, 0.9);
+  border: 1px solid var(--panel-border);
+  font-size: 11.5px;
+  line-height: 1.3;
+  color: #e2e8f0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 16;
+}
+
+.xipha-app-shell .lod-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent-cyan);
+  box-shadow: 0 0 8px var(--accent-cyan);
+  flex-shrink: 0;
+}
+
+.xipha-app-shell .zoom-mini-btns {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: 4px;
+}
+
+.xipha-app-shell .zoom-mini-btns button {
+  padding: 2px 7px !important;
+  border-radius: 4px !important;
+  border: 1px solid rgba(148, 163, 184, 0.25) !important;
+  background: rgba(15, 23, 42, 0.9) !important;
+  color: #f8fafc !important;
+  font-family: var(--font-sans) !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  line-height: 1.3 !important;
+  cursor: pointer;
+  box-shadow: none !important;
+}
+
+.xipha-app-shell .zoom-mini-btns button:hover {
+  border-color: var(--accent-cyan) !important;
+}
+
+/* ================= QUICK-EDIT MODAL ================= */
+.xipha-app-shell .modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(3, 6, 14, 0.72);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 60;
+}
+
+.xipha-app-shell .quick-edit-modal {
+  width: min(650px, 94vw);
+  max-height: 90vh;
+  overflow-y: auto;
+  background: #0b1224;
+  border: 1px solid var(--panel-border-strong);
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.65);
+  color: #f1f5f9;
+}
+
+.xipha-app-shell .modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.xipha-app-shell .modal-header h3 {
+  margin: 0 !important;
+  font-size: 16px !important;
+  line-height: 1.3 !important;
+  color: #f1f5f9 !important;
+}
+
+.xipha-app-shell .modal-header p {
+  margin: 4px 0 0 !important;
+  padding: 0 !important;
+  font-size: 12px !important;
+  line-height: 1.45 !important;
+  color: #94a3b8 !important;
+}
+
+.xipha-app-shell .modal-tabs {
+  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+  padding-bottom: 10px;
+}
+
+.xipha-app-shell .modal-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px !important;
+  border-radius: 8px !important;
+  border: 1px solid rgba(148, 163, 184, 0.2) !important;
+  background: rgba(15, 23, 42, 0.7) !important;
+  color: var(--text-secondary) !important;
+  font-family: var(--font-sans) !important;
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  line-height: 1.3 !important;
+  cursor: pointer;
+  box-shadow: none !important;
+}
+
+.xipha-app-shell .modal-tabs button.active {
+  background: rgba(56, 189, 248, 0.18) !important;
+  border-color: var(--accent-cyan) !important;
+  color: #ffffff !important;
+}
+
+.xipha-app-shell .modal-form {
+  margin: 14px 0 0 !important;
+  padding: 0 !important;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.xipha-app-shell .modal-form label {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 5px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  font-size: 11.5px !important;
+  font-weight: 500 !important;
+  line-height: 1.35 !important;
+  color: #cbd5e1 !important;
+}
+
+.xipha-app-shell .form-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.xipha-app-shell .form-grid-2 {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 10px;
+}
+
+.xipha-app-shell .arc-check-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 11.5px;
+  color: #cbd5e1;
+}
+
+.xipha-app-shell .modal-submit-row {
+  margin-top: 6px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* ================= MOBILE RESPONSIVE (<= 768px) ================= */
+@media (max-width: 768px) {
+  .xipha-app-shell {
+    height: 84vh;
+    min-height: 440px;
+  }
+
+  .xipha-app-shell .top-arc-bar {
+    min-height: auto;
+    padding: 6px 8px;
+    gap: 6px;
+  }
+
+  .xipha-app-shell .brand-cluster {
+    gap: 8px;
+  }
+
+  .xipha-app-shell .xipha-core-badge {
+    padding: 4px 7px;
+    font-size: 10px;
+  }
+
+  .xipha-app-shell .brand-title {
+    font-size: 13px;
+  }
+
+  .xipha-app-shell .brand-stats {
+    font-size: 10.5px;
+  }
+
+  .xipha-app-shell .arc-layer-switcher {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding: 3px 5px;
+    border-radius: 10px;
+  }
+
+  .xipha-app-shell .arc-layer-switcher::-webkit-scrollbar {
+    display: none;
+  }
+
+  .xipha-app-shell .switcher-caption {
+    display: none;
+  }
+
+  .xipha-app-shell .arc-pill {
+    flex-shrink: 0;
+    padding: 4px 8px !important;
+    font-size: 11px !important;
+  }
+
+  .xipha-app-shell .view-action-cluster {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    gap: 4px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .xipha-app-shell .view-action-cluster::-webkit-scrollbar {
+    display: none;
+  }
+
+  .xipha-app-shell .view-action-cluster > * {
+    flex-shrink: 0;
+  }
+
+  .xipha-app-shell .segmented-toggle button,
+  .xipha-app-shell .hud-btn {
+    padding: 4px 7px !important;
+    font-size: 11px !important;
+  }
+
+  .xipha-app-shell .left-dock-launcher {
+    max-width: calc(100% - 24px);
+  }
+
+  .xipha-app-shell .left-control-dock {
+    top: 10px;
+    left: 10px;
+    right: 10px;
+    width: auto;
+    max-width: calc(100% - 20px);
+    max-height: calc(100% - 20px);
+    padding: 10px;
+    overflow-x: hidden;
+    z-index: 25;
+  }
+
+  .xipha-app-shell .inspector-drawer {
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-width: 100%;
+    max-height: 54%;
+    border-radius: 14px 14px 0 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    padding: 12px 14px 16px;
+    z-index: 22;
+  }
+
+  .xipha-app-shell .bottom-hint-pill {
+    display: none;
+  }
+
+  .xipha-app-shell .lod-hud-badge {
+    bottom: 12px;
+    max-width: calc(100% - 20px);
+    padding: 4px 10px;
+    font-size: 10.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .xipha-app-shell .form-grid-3,
+  .xipha-app-shell .form-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "name": "kiseki-relation-graph",
+  "private": true,
+  "version": "1.0.2",
+  "type": "module",
+  "scripts": {
+    "sync:seed": "node scripts/sync-seed.mjs",
+    "lint": "tsc --noEmit",
+    "dev": "node scripts/sync-seed.mjs && vite --host 0.0.0.0 --port 5173",
+    "build": "node scripts/sync-seed.mjs && tsc --noEmit && vite build",
+    "build:wp": "node scripts/sync-seed.mjs && tsc --noEmit && vite build --config vite.viewer.config.ts && vite build --config vite.admin.config.ts",
+    "preview": "vite preview --host 0.0.0.0 --port 4173"
+  },
+  "dependencies": {
+    "3d-force-graph": "^1.79.0",
+    "d3-force": "^3.0.0",
+    "d3-polygon": "^3.0.1",
+    "lucide-react": "^0.475.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "three": "^0.187.0"
+  },
+  "devDependencies": {
+    "@types/d3-force": "^3.0.10",
+    "@types/d3-polygon": "^3.0.2",
+    "@types/react": "^19.0.8",
+    "@types/react-dom": "^19.0.3",
+    "@types/three": "^0.187.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "~5.7.3",
+    "vite": "^6.1.0"
+  }
+}

@@ -1,0 +1,61 @@
+services:
+  db:
+    image: mariadb:11.4
+    container_name: kiseki-wp-db
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: wordpress
+      MARIADB_USER: wp
+      MARIADB_PASSWORD: wp_secret_password
+      MARIADB_ROOT_PASSWORD: root_secret_password
+    volumes:
+      - wp_db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 4s
+      timeout: 3s
+      retries: 20
+
+  wordpress:
+    image: wordpress:php8.3-apache
+    container_name: kiseki-wp-web
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8088:80"
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_USER: wp
+      WORDPRESS_DB_PASSWORD: wp_secret_password
+      WORDPRESS_DB_NAME: wordpress
+    volumes:
+      - wp_html_data:/var/www/html
+      - ./wp-plugin/kiseki-relation-graph:/var/www/html/wp-content/plugins/kiseki-relation-graph
+      - ./docker/mu-trails-cpts.php:/var/www/html/wp-content/mu-plugins/mu-trails-cpts.php:ro
+
+  wpcli:
+    image: wordpress:cli-php8.3
+    container_name: kiseki-wp-cli
+    user: "33:33"
+    depends_on:
+      wordpress:
+        condition: service_started
+      db:
+        condition: service_healthy
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_USER: wp
+      WORDPRESS_DB_PASSWORD: wp_secret_password
+      WORDPRESS_DB_NAME: wordpress
+    volumes:
+      - wp_html_data:/var/www/html
+      - ./wp-plugin/kiseki-relation-graph:/var/www/html/wp-content/plugins/kiseki-relation-graph
+      - ./docker/mu-trails-cpts.php:/var/www/html/wp-content/mu-plugins/mu-trails-cpts.php:ro
+      - ./docker/setup-wp.sh:/setup-wp.sh:ro
+    entrypoint: ["/bin/sh", "/setup-wp.sh"]
+
+volumes:
+  wp_db_data:
+  wp_html_data:

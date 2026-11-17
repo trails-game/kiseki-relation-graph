@@ -1,0 +1,56 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build & Publish Release Artifacts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint & validate dataset
+        run: |
+          npm run lint
+          find wp-plugin -name '*.php' -print0 | xargs -0 -n1 php -l
+          python3 tools/validate_dataset.py
+
+      - name: Build WordPress plugin & standalone web bundles
+        run: |
+          TAG_VER="${GITHUB_REF_NAME#v}"
+          npm run build
+          npm run build:wp
+          python3 tools/package_plugin.py --stamp-version "${TAG_VER}" --expect-version "${TAG_VER}"
+          (cd dist && zip -qr -9 ../kiseki-relation-web-dist.zip .)
+          sha256sum kiseki-relation-graph.zip kiseki-relation-web-dist.zip > SHA256SUMS.txt
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            kiseki-relation-graph.zip
+            kiseki-relation-web-dist.zip
+            SHA256SUMS.txt

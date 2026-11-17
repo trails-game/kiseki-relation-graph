@@ -1,0 +1,19 @@
+# Dependencies & local caches
+node_modules/
+dist/
+*.tsbuildinfo
+__pycache__/
+*.py[cod]
+tools/cache/
+
+# Generated seed copies & build outputs
+public/
+wp-plugin/kiseki-relation-graph/assets/
+wp-plugin/kiseki-relation-graph/seed/
+*.zip
+SHA256SUMS.txt
+
+# Environment & OS files
+.DS_Store
+.env
+.env.*
